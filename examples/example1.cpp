@@ -7,7 +7,7 @@ int main()
     options.filesize_max = 256; // 256 bytes
     options.database_max = 1024 * 10;; // 5k
 
-    ashdb::AshDB<std::string> db{"./testdb", "file-{}.db}", options};
+    ashdb::AshDB<std::string> db{"./testdb", "file-%d.db}", options};
 
     const std::string data = "0123456789abcdef0123456789abcdef";
 

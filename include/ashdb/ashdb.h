@@ -9,6 +9,8 @@ struct Options
     std::uint64_t database_max = 0;
 };
 
+std::string GenerateFilename(const std::string& folder, const std::string& pattern, std::uint64_t fileindex);
+
 template<class ThingT>
 class AshDB
 {
@@ -29,7 +31,6 @@ public:
     {
         // nothing to do (yet)
     }
-
 
     std::uint32_t version() const 
     { 

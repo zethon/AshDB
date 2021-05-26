@@ -1,6 +1,5 @@
 # AshDB
 
-AshDB is a 
 
 ```cpp
 // define custom class

@@ -18,8 +18,8 @@ function(create_test testname FILES)
 
 endfunction(create_test)
 
-
 set(SOURCE_FILES
+    ../src/ashdb.cpp
     ../include/ashdb/ashdb.h
 )
 
