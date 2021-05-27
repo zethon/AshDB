@@ -4,6 +4,7 @@ set(SOURCE_FILES
 
 set(HEADER_FILES
     ../include/ashdb/ashdb.h
+    ../include/ashdb/primitives.h
 )
 
 add_library(AshDBLib STATIC
