@@ -146,12 +146,47 @@ BOOST_AUTO_TEST_CASE(db_write3)
 
     ashdb::Options options;
     options.filesize_max = 256;
-    options.database_max = 1536 * 3;
+    options.database_max = 3500;
 
     auto db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(db->activeIndex() == 0);
+
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 0
-    syntax error, finish the test of database size
+    BOOST_TEST(db->activeIndex() == 1);
+
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 1
+    BOOST_TEST(db->activeIndex() == 2);
+
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 2
+    BOOST_TEST(db->activeIndex() == 3);
+
+    // db is too big, so delete the first file
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 3
+    BOOST_TEST(db->activeIndex() == 4);
+    BOOST_TEST(db->startIndex() == 1);
+
+    db.reset();
+
+    db = std::make_unique<StringDB>(tempFolder, options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(db->startIndex() == 1);
+    BOOST_TEST(db->activeIndex() == 4);
+
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 4
+    BOOST_TEST(db->activeIndex() == 5);
+    BOOST_TEST(db->startIndex() == 2);
+
+    db.reset();
+
+    db = std::make_unique<StringDB>(tempFolder, options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(db->startIndex() == 2);
+    BOOST_TEST(db->activeIndex() == 5);
+
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 4
+    BOOST_TEST(db->activeIndex() == 6);
+    BOOST_TEST(db->startIndex() == 3);
 }
 
 BOOST_AUTO_TEST_SUITE_END() 

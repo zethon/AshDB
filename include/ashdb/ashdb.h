@@ -280,7 +280,15 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
         const auto filename = ashdb::BuildFilename(
                 _dbfolder, _options.prefix, _options.extension, i);
 
-        retval += static_cast<std::uint64_t>(boost::filesystem::file_size(filename));
+        boost::filesystem::path filepath{filename};
+
+        if (!boost::filesystem::exists(filepath))
+        {
+            assert(i == _activeIndex);
+            break;
+        }
+
+        retval += static_cast<std::uint64_t>(boost::filesystem::file_size(filepath));
     }
     return retval;
 }
