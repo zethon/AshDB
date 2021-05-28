@@ -70,7 +70,8 @@ public:
         : _dbfolder{ folder },
           _options{ options }
     {
-        // nothing to do (yet)
+        _startIndex.reset();
+        _lastIndex.reset();
     }
 
     OpenStatus open();
@@ -88,6 +89,18 @@ public:
     // but does NOT include the size of the corresponding index
     // files (i.e. "data-0001.datidx")
     std::uint64_t databaseSize() const;
+
+    // returns the number of records in the database
+    std::size_t size() const
+    {
+        if (!_open || !_startIndex.has_value())
+        {
+            assert(!_lastIndex.has_value());
+            return 0;
+        }
+
+        return (*_lastIndex - *_startIndex) + 1;
+    }
 
     // data files have names like "data-0001.dat", the numbers returned
     // by these methods represent the "0001" portion of the filename
@@ -220,6 +233,8 @@ template<class ThingT>
 void AshDB<ThingT>::close()
 {
     std::scoped_lock lock{_readWriteMutex};
+    _startIndex.reset();
+    _lastIndex.reset();
     _open = false;
 }
 
