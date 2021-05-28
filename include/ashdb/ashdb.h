@@ -131,6 +131,7 @@ private:
         }
 
         ashdb::ashdb_write(ofs, offset);
+        ofs.close();
 
         const auto recordCount = ((_activeFileNumber - _startFileNumber) + 1);
         if (_indexRecord.size() < recordCount)
@@ -300,10 +301,20 @@ ThingT AshDB<ThingT>::read(std::size_t index)
     auto currentRecord = _startFileNumber;
     for (const auto& offsets : _indexRecord)
     {
-        if (index <= (offsets.front() + offsets.size()))
+        if (index < (offsets.front() + offsets.size()))
         {
             auto localIndex = index - offsets.front();
-            readOffset = offsets.at(localIndex);
+            if (localIndex == 0)
+            {
+                // the first offset of the record-index tells us the index number
+                // of the first item in that index file and not the offset, we can
+                // safely assume the offset of the first item in a data file is always 0
+                readOffset = 0;
+            }
+            else
+            {
+                readOffset = offsets.at(localIndex);
+            }
             break;
         }
         else

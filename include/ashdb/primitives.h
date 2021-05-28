@@ -40,7 +40,7 @@ inline void ashdb_read(std::istream& stream, double& val)
 
 inline void ashdb_read(std::istream& stream, std::string& data)
 {
-    StrLenType len;
+    StrLenType len = 0;
     ashdb_read(stream, len);
 
     data.resize(len);

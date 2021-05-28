@@ -262,9 +262,7 @@ BOOST_AUTO_TEST_CASE(db_write3)
 
 BOOST_AUTO_TEST_CASE(db_read1)
 {
-    static const char* piStr = "M";
     auto tempFolder = (ashdb::test::tempFolder("db_read1")).string();
-//    auto tempFolder = "/Users/addy/Desktop/data";
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -281,12 +279,48 @@ BOOST_AUTO_TEST_CASE(db_read1)
         std::stringstream ss;
         ss << "string" << i;
         BOOST_TEST(db->write(ss.str()) == ashdb::WriteStatus::OK);
+        BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
+        BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == i));
     }
 
     for (auto i = 0u; i < 10; ++i)
     {
         auto temp = db->read(i);
         BOOST_TEST(temp == "string" + std::to_string(i));
+    }
+}
+
+BOOST_AUTO_TEST_CASE(db_read2)
+{
+    static auto dataStr = "[ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ-";
+    auto tempFolder = (ashdb::test::tempFolder("db_read1")).string();
+
+    ashdb::Options options;
+    options.create_if_missing = true;
+    options.error_if_exists = false;
+    options.filesize_max = 32;
+
+    auto db = std::make_unique<StringDB>(tempFolder, options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(!db->startIndex().has_value());
+    BOOST_TEST(!db->lastIndex().has_value());
+
+    for (auto i = 0u; i < 100; ++i)
+    {
+        std::stringstream ss;
+        ss << "[ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ-" << i << ']';
+        BOOST_TEST(db->write(ss.str()) == ashdb::WriteStatus::OK);
+        BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
+        BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == i));
+    }
+
+    for (auto i = 0u; i < 100; ++i)
+    {
+        std::stringstream ss;
+        ss << "[ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ-" << i << ']';
+
+        auto temp = db->read(i);
+        BOOST_TEST(temp == ss.str());
     }
 }
 
