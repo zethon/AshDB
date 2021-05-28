@@ -287,6 +287,44 @@ template<class ThingT>
 ThingT AshDB<ThingT>::read(std::size_t index)
 {
     std::scoped_lock lock{_readWriteMutex};
+    if (index < _startIndex || index > _lastIndex)
+    {
+        std::stringstream ss;
+        ss << "index " << index << " is out of bounds";
+        throw std::runtime_error(ss.str());
+    }
+
+    // TODO: this is awful and needs to be refactored, but I just want to get
+    // the unit tests in place, so it will do for now
+    std::optional<std::size_t> readOffset;
+    auto currentRecord = _startFileNumber;
+    for (const auto& offsets : _indexRecord)
+    {
+        if (index <= (offsets.front() + offsets.size()))
+        {
+            auto localIndex = index - offsets.front();
+            readOffset = offsets.at(localIndex);
+            break;
+        }
+        else
+        {
+            currentRecord++;
+        }
+    }
+
+    if (readOffset.has_value())
+    {
+        const auto dataFile = buildDataFilename(currentRecord);
+        if (std::ifstream ifs(dataFile.data(), std::ios_base::binary); ifs.is_open())
+        {
+            ifs.seekg(*readOffset);
+
+            ThingT thing;
+            ashdb::ashdb_read(ifs, thing);
+            return thing;
+        }
+    }
+
     return {};
 }
 

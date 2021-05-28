@@ -264,15 +264,30 @@ BOOST_AUTO_TEST_CASE(db_read1)
 {
     static const char* piStr = "M";
     auto tempFolder = (ashdb::test::tempFolder("db_read1")).string();
+//    auto tempFolder = "/Users/addy/Desktop/data";
 
     ashdb::Options options;
     options.create_if_missing = true;
     options.error_if_exists = false;
     options.filesize_max = 1024 * 5;
 
-    auto db = std::make_unique<StringDB>("/Users/addy/Desktop/data", options);
+    auto db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
+    BOOST_TEST(!db->startIndex().has_value());
+    BOOST_TEST(!db->lastIndex().has_value());
+
+    for (auto i = 0u; i < 10; ++i)
+    {
+        std::stringstream ss;
+        ss << "string" << i;
+        BOOST_TEST(db->write(ss.str()) == ashdb::WriteStatus::OK);
+    }
+
+    for (auto i = 0u; i < 10; ++i)
+    {
+        auto temp = db->read(i);
+        BOOST_TEST(temp == "string" + std::to_string(i));
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END() 
