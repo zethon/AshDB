@@ -1,5 +1,14 @@
 # AshDB
 
+AshDB is a simple index based storage library that provides a segment file layout. 
+
+## Features
+
+## Building
+
+## Performance
+
+This is in such early development that I am trying to get basic functionality complete before I worry too much about performance. That doesn't mean I'm completely ignoring performance, but it does mean that I will favor getting things done quick for right now. 
 
 ```cpp
 // define custom class

@@ -91,18 +91,28 @@ BOOST_AUTO_TEST_CASE(db_write1)
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
     BOOST_TEST(db->startIndex() == 0);
     BOOST_TEST(db->activeIndex() == 1);
+    BOOST_TEST(db->recordIndex().size() == 1);
+    BOOST_TEST(db->recordIndex().at(0).size() == 1);
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
     BOOST_TEST(db->activeIndex() == 2);
+    BOOST_TEST(db->recordIndex().size() == 2);
+    BOOST_TEST(db->recordIndex().at(1).size() == 1);
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
     BOOST_TEST(db->activeIndex() == 3);
+    BOOST_TEST(db->recordIndex().size() == 3);
+    BOOST_TEST(db->recordIndex().at(2).size() == 1);
 
     db->close();
 
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
     BOOST_TEST(db->activeIndex() == 3);
+    BOOST_TEST(db->recordIndex().size() == 3);
+    BOOST_TEST(db->recordIndex().at(0).size() == 1);
+    BOOST_TEST(db->recordIndex().at(1).size() == 1);
+    BOOST_TEST(db->recordIndex().at(2).size() == 1);
 }
 
 BOOST_AUTO_TEST_CASE(db_write2)
@@ -119,24 +129,38 @@ BOOST_AUTO_TEST_CASE(db_write2)
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // writes in 0
     BOOST_TEST(db->startIndex() == 0);
     BOOST_TEST(db->activeIndex() == 0);
+    BOOST_TEST(db->recordIndex().size() == 1);
+    BOOST_TEST(db->recordIndex().at(0).size() == 1);
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 0
     BOOST_TEST(db->activeIndex() == 1);
+    BOOST_TEST(db->recordIndex().size() == 1);
+    BOOST_TEST(db->recordIndex().at(0).size() == 2);
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 1
     BOOST_TEST(db->activeIndex() == 1);
+    BOOST_TEST(db->recordIndex().size() == 2);
+    BOOST_TEST(db->recordIndex().at(1).size() == 1);
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 1
     BOOST_TEST(db->activeIndex() == 2);
+    BOOST_TEST(db->recordIndex().size() == 2);
+    BOOST_TEST(db->recordIndex().at(1).size() == 2);
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 2
     BOOST_TEST(db->activeIndex() == 2);
+    BOOST_TEST(db->recordIndex().size() == 3);
+    BOOST_TEST(db->recordIndex().at(2).size() == 1);
 
     db->close();
 
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
     BOOST_TEST(db->activeIndex() == 2);
+    BOOST_TEST(db->recordIndex().size() == 3);
+    BOOST_TEST(db->recordIndex().at(0).size() == 2);
+    BOOST_TEST(db->recordIndex().at(1).size() == 2);
+    BOOST_TEST(db->recordIndex().at(2).size() == 1);
 }
 
 BOOST_AUTO_TEST_CASE(db_write3)
@@ -187,6 +211,21 @@ BOOST_AUTO_TEST_CASE(db_write3)
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 4
     BOOST_TEST(db->activeIndex() == 6);
     BOOST_TEST(db->startIndex() == 3);
+}
+
+BOOST_AUTO_TEST_CASE(db_read1)
+{
+    static const char* piStr = "M";
+    auto tempFolder = (ashdb::test::tempFolder("db_read1")).string();
+
+    ashdb::Options options;
+    options.create_if_missing = true;
+    options.error_if_exists = false;
+    options.filesize_max = 1024 * 5;
+
+    auto db = std::make_unique<StringDB>("/Users/addy/Desktop/data", options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
 }
 
 BOOST_AUTO_TEST_SUITE_END() 

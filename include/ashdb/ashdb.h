@@ -4,98 +4,60 @@
 
 #include <boost/filesystem.hpp>
 
+#include "options.h"
 #include "primitives.h"
+#include "status.h"
 
 namespace ashdb
 {
 
-enum class OpenStatus
-{
-    OK,
-    EXISTS,
-    NOT_FOUND,
-    INVALID_PREFIX,
-    INVALID_EXTENSION,
-    ALREADY_OPEN
-};
-
-inline std::string ToString(OpenStatus status)
-{
-    switch (status)
-    {
-        default:
-            throw std::runtime_error("invalid OpenStatus");
-        case OpenStatus::OK:
-            return "OK";
-        case OpenStatus::EXISTS:
-            return "EXISTS";
-        case OpenStatus::NOT_FOUND:
-            return "NOT_FOUND";
-        case OpenStatus::INVALID_PREFIX:
-            return "INVALID_PREFIX";
-        case OpenStatus::INVALID_EXTENSION:
-            return "INVALID_EXTENSION";
-        case OpenStatus::ALREADY_OPEN:
-            return "ALREADY_OPEN";
-    }
-}
-
-enum class WriteStatus
-{
-    OK,
-    NOT_OPEN
-};
-
-inline std::string ToString(WriteStatus status)
-{
-    switch (status)
-    {
-        default:
-            throw std::runtime_error("invalid WriteStatus");
-        case WriteStatus::OK:
-            return "OK";
-        case WriteStatus::NOT_OPEN:
-            return "EXISTS";
-    }
-}
-
-struct Options
-{
-    bool create_if_missing = true;
-    bool error_if_exists = false;
-
-    std::uint64_t filesize_max = 0;
-    std::uint64_t database_max = 0;
-
-    std::string prefix = "data";
-    std::string extension = "ash";
-};
+constexpr auto INDEX_EXTENSION = "idx";
+constexpr auto VALIDCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvqxyz0123456789-_";
 
 std::string BuildFilename(const std::string& folder,
                           const std::string& prefix,
                           const std::string& extension,
                           std::uint64_t fileindex);
 
-std::string BuildWildcard(const std::string& folder,
-                          const std::string& pattern);
+inline std::vector<std::size_t> ReadIndexFile(const std::string& filename)
+{
+    std::vector<std::size_t> retval;
 
-constexpr auto INDEX_EXTENSION = "idx";
-constexpr auto VALIDCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvqxyz0123456789-_";
+    if (!boost::filesystem::exists(filename))
+    {
+        return {};
+    }
+
+    if (std::ifstream ifs(filename.data(), std::ios_base::binary);
+        ifs.is_open())
+    {
+        while (ifs.peek() != EOF)
+        {
+            std::size_t value;
+            ashdb_read(ifs, value);
+            retval.push_back(value);
+        }
+    }
+
+    return retval;
+}
+
+using RecordIndex = std::vector<std::vector<std::size_t>>;
 
 template<class ThingT>
 class AshDB
 {
-    const std::uint32_t _version = 1;
-    
-    const std::string   _dbfolder;
-    const Options       _options;
+    const std::string       _dbfolder;
+    const Options           _options;
 
-    std::uint16_t       _startIndex = 0;
-    std::uint16_t       _activeIndex = 0;
+    RecordIndex             _recordIndex;
 
-    std::mutex          _readWriteMutex;
+    std::uint16_t           _startFileNumber = 0;
+    std::uint16_t           _activeFileNumber = 0;
 
-    std::atomic_bool    _open = false;
+    std::mutex              _readWriteMutex;
+
+    std::atomic_bool        _open = false;
 
 public:
 
@@ -107,37 +69,64 @@ public:
     }
 
     OpenStatus open();
+    void close();
 
     WriteStatus write(const ThingT& thing);
     ThingT read(std::size_t index);
 
     std::uint64_t databaseSize() const;
 
-    std::uint16_t startIndex() const { return _startIndex; }
-    std::uint16_t activeIndex() const { return _activeIndex; }
+    std::uint16_t startIndex() const { return _startFileNumber; }
+    std::uint16_t activeIndex() const { return _activeFileNumber; }
 
     std::string activeDataFile() const
     {
-        return ashdb::BuildFilename(
-                _dbfolder, _options.prefix, _options.extension, _activeIndex);
+        return buildDataFilename(_activeFileNumber);
     }
 
     std::string activeIndexFile() const
     {
-        return ashdb::BuildFilename(
-                _dbfolder, _options.prefix, INDEX_EXTENSION, _activeIndex);
-
+        return buildIndexFilename(_activeFileNumber);
     }
 
-    void close()
-    {
-        std::scoped_lock lock{_readWriteMutex};
-        _open = false;
-    }
+    const RecordIndex recordIndex() const { return _recordIndex; }
 
 private:
     void findFileBoundaries();
 
+    bool writeIndexEntry(std::size_t offset)
+    {
+        std::string temp = activeIndexFile();
+        std::ofstream ofs(temp.data(), std::ios::out | std::ios::binary | std::ios::app);
+        if (!ofs.is_open())
+        {
+            return false;
+        }
+
+        ashdb::ashdb_write(ofs, offset);
+
+        const auto recordCount = ((_activeFileNumber - _startFileNumber) + 1);
+        if (_recordIndex.size() != _activeFileNumber + 1)
+        {
+            assert(_recordIndex.size() == _activeFileNumber);
+            _recordIndex.push_back({});
+        }
+
+        _recordIndex.back().push_back(offset);
+
+        return true;
+    }
+
+    std::string buildDataFilename(std::uint16_t x) const
+    {
+        return ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, x);
+    }
+
+    std::string buildIndexFilename(std::uint16_t x) const
+    {
+        const auto temp = _options.extension + INDEX_EXTENSION;
+        return ashdb::BuildFilename(_dbfolder, _options.prefix, temp, x);
+    }
 };
 
 template<class ThingT>
@@ -181,9 +170,26 @@ OpenStatus AshDB<ThingT>::open()
 
     findFileBoundaries();
 
+    _recordIndex.clear();
+    for (auto i = _startFileNumber; i <= _activeFileNumber; ++i)
+    {
+        const auto indexFilename = buildIndexFilename(i);
+        if (boost::filesystem::exists(indexFilename))
+        {
+            _recordIndex.push_back({});
+            _recordIndex.back() = ashdb::ReadIndexFile(indexFilename);
+        }
+    }
 
     _open = true;
     return OpenStatus::OK;
+}
+
+template<class ThingT>
+void AshDB<ThingT>::close()
+{
+    std::scoped_lock lock{_readWriteMutex};
+    _open = false;
 }
 
 template<class ThingT>
@@ -196,23 +202,45 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     }
 
     const auto datafile = this->activeDataFile();
+    auto destfilesize = boost::filesystem::exists(datafile)
+            ? boost::filesystem::file_size(datafile.data()) : 0u;
+
+    // let's write the index before we write the data
+    if (destfilesize == 0)
+    {
+        // this is the first entry in the index, so we need to write out the
+        // index number of the item instead of the offset
+        std::size_t value = 0;
+        for (auto& v : _recordIndex)
+        {
+            value += v.size();
+        }
+
+        writeIndexEntry(value);
+    }
+    else
+    {
+        writeIndexEntry(destfilesize);
+    }
+
     std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
     ashdb::ashdb_write(ofs, thing);
     ofs.close();
 
-    if (_options.filesize_max > 0
-        && boost::filesystem::file_size(datafile.data()) >= _options.filesize_max)
+    // now that we've written the data, check the filesize once again
+    destfilesize = boost::filesystem::file_size(datafile.data());
+    if (_options.filesize_max > 0 && destfilesize >= _options.filesize_max)
     {
-        _activeIndex++;
+        _activeFileNumber++;
     }
 
     if (_options.database_max > 0 && databaseSize() > _options.database_max)
     {
         const auto fn = ashdb::BuildFilename(
-            _dbfolder, _options.prefix, _options.extension, _startIndex);
+            _dbfolder, _options.prefix, _options.extension, _startFileNumber);
 
         boost::filesystem::remove(fn);
-        _startIndex++;
+        _startFileNumber++;
     }
 
     return WriteStatus::OK;
@@ -228,7 +256,7 @@ ThingT AshDB<ThingT>::read(std::size_t index)
 template<class ThingT>
 void AshDB<ThingT>::findFileBoundaries()
 {
-    boost::filesystem::path dbpath{ _dbfolder };
+    boost::filesystem::path dbpath{_dbfolder};
 
     // early fail if the folder is empty
     if (boost::filesystem::is_empty(dbpath))
@@ -261,13 +289,15 @@ void AshDB<ThingT>::findFileBoundaries()
         }
     }
 
-    _startIndex = start;
-    _activeIndex = std::max(_startIndex, end);
+    _startFileNumber = start;
+    _activeFileNumber = std::max(_startFileNumber, end);
 
     if (const auto datafile = activeDataFile();
-        _options.filesize_max != 0 && boost::filesystem::file_size(datafile.data()) >= _options.filesize_max)
+        _options.filesize_max != 0
+        && boost::filesystem::exists(datafile.data())
+        && boost::filesystem::file_size(datafile.data()) >= _options.filesize_max)
     {
-        _activeIndex++;
+        _activeFileNumber++;
     }
 }
 
@@ -275,7 +305,7 @@ template<class ThingT>
 std::uint64_t AshDB<ThingT>::databaseSize() const
 {
     std::uint64_t retval = 0;
-    for (auto i = _startIndex; i <= _activeIndex; ++i)
+    for (auto i = _startFileNumber; i <= _activeFileNumber; ++i)
     {
         const auto filename = ashdb::BuildFilename(
                 _dbfolder, _options.prefix, _options.extension, i);
@@ -284,7 +314,7 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
 
         if (!boost::filesystem::exists(filepath))
         {
-            assert(i == _activeIndex);
+            assert(i == _activeFileNumber);
             break;
         }
 

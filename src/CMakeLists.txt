@@ -1,9 +1,11 @@
 set(SOURCE_FILES
     ashdb.cpp
+    status.cpp
 )
 
 set(HEADER_FILES
     ../include/ashdb/ashdb.h
+    ../include/ashdb/options.h
     ../include/ashdb/primitives.h
 )
 

@@ -31,16 +31,4 @@ std::string BuildFilename(const std::string& folder,
     return path.string();
 }
 
-std::string BuildWildcard(const std::string& folder,
-                          const std::string& pattern)
-{
-    std::string temp { pattern };
-    boost::replace_all(temp, "%d", "*");
-
-    boost::filesystem::path path { folder };
-    path /= temp;
-    return path.string();
-}
-
-
 } // namespace ashdb
