@@ -42,7 +42,7 @@ inline std::vector<std::size_t> ReadIndexFile(const std::string& filename)
     return retval;
 }
 
-using RecordIndex = std::vector<std::vector<std::size_t>>;
+using IndexRecord = std::vector<std::vector<std::size_t>>;
 
 template<class ThingT>
 class AshDB
@@ -50,8 +50,13 @@ class AshDB
     const std::string       _dbfolder;
     const Options           _options;
 
-    RecordIndex             _recordIndex;
+    IndexRecord             _indexRecord;
 
+    // the first and last accessors of the records using `at()` or `operator[]`
+    std::optional<std::size_t>  _startIndex = 0;
+    std::optional<std::size_t>  _lastIndex = 0;
+
+    // the current first and last file numbers
     std::uint16_t           _startFileNumber = 0;
     std::uint16_t           _activeFileNumber = 0;
 
@@ -74,25 +79,47 @@ public:
     WriteStatus write(const ThingT& thing);
     ThingT read(std::size_t index);
 
+    // returns the accessor boundaries ot the database, for example
+    // if we use "db->at(i)", these functions tell us the range of "i"
+    auto startIndex() const { return _startIndex; }
+    auto lastIndex() const { return _lastIndex; }
+
+    // returns the size of all the "data-0001.dat" files on the disk
+    // but does NOT include the size of the corresponding index
+    // files (i.e. "data-0001.datidx")
     std::uint64_t databaseSize() const;
 
-    std::uint16_t startIndex() const { return _startFileNumber; }
-    std::uint16_t activeIndex() const { return _activeFileNumber; }
+    // data files have names like "data-0001.dat", the numbers returned
+    // by these methods represent the "0001" portion of the filename
+    std::uint16_t startRecordNumber() const { return _startFileNumber; }
+    std::uint16_t activeRecordNumber() const { return _activeFileNumber; }
 
+    // returns the full path of the file to which the next record will
+    // be written
     std::string activeDataFile() const
     {
         return buildDataFilename(_activeFileNumber);
     }
 
+    // returns the full path of the file to which the next index entry
+    // will be written
     std::string activeIndexFile() const
     {
         return buildIndexFilename(_activeFileNumber);
     }
 
-    const RecordIndex recordIndex() const { return _recordIndex; }
+    // records the vector of vector that keeps track of all the records
+    // and their offsets
+    const IndexRecord indexRecord() const { return _indexRecord; }
 
 private:
     void findFileBoundaries();
+
+    // find the boundaries of the accessor methods, i.e. we access
+    // the records in the database through `at(i)` and this will
+    // find the valid range of values of `i`. NOTE: This should
+    // be called AFTER `_indexRecord` has been setup
+    void findIndexBoundaries();
 
     bool writeIndexEntry(std::size_t offset)
     {
@@ -106,13 +133,13 @@ private:
         ashdb::ashdb_write(ofs, offset);
 
         const auto recordCount = ((_activeFileNumber - _startFileNumber) + 1);
-        if (_recordIndex.size() != _activeFileNumber + 1)
+        if (_indexRecord.size() < recordCount)
         {
-            assert(_recordIndex.size() == _activeFileNumber);
-            _recordIndex.push_back({});
+            assert(_indexRecord.size() == recordCount - 1);
+            _indexRecord.push_back({});
         }
 
-        _recordIndex.back().push_back(offset);
+        _indexRecord.back().push_back(offset);
 
         return true;
     }
@@ -170,16 +197,19 @@ OpenStatus AshDB<ThingT>::open()
 
     findFileBoundaries();
 
-    _recordIndex.clear();
+    // load the record-index
+    _indexRecord.clear();
     for (auto i = _startFileNumber; i <= _activeFileNumber; ++i)
     {
         const auto indexFilename = buildIndexFilename(i);
         if (boost::filesystem::exists(indexFilename))
         {
-            _recordIndex.push_back({});
-            _recordIndex.back() = ashdb::ReadIndexFile(indexFilename);
+            _indexRecord.push_back({});
+            _indexRecord.back() = ashdb::ReadIndexFile(indexFilename);
         }
     }
+
+    findIndexBoundaries();
 
     _open = true;
     return OpenStatus::OK;
@@ -208,14 +238,11 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     // let's write the index before we write the data
     if (destfilesize == 0)
     {
-        // this is the first entry in the index, so we need to write out the
-        // index number of the item instead of the offset
-        std::size_t value = 0;
-        for (auto& v : _recordIndex)
+        auto value = 0;
+        if (_indexRecord.size() > 0)
         {
-            value += v.size();
+            value = _indexRecord.back().at(0) + _indexRecord.back().size();
         }
-
         writeIndexEntry(value);
     }
     else
@@ -234,14 +261,24 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
         _activeFileNumber++;
     }
 
-    if (_options.database_max > 0 && databaseSize() > _options.database_max)
+    if (_options.database_max > 0
+        && databaseSize() > _options.database_max)
     {
-        const auto fn = ashdb::BuildFilename(
-            _dbfolder, _options.prefix, _options.extension, _startFileNumber);
-
+        const auto fn = buildDataFilename(_startFileNumber);
+        const auto ifn = buildIndexFilename(_startFileNumber);
         boost::filesystem::remove(fn);
+        boost::filesystem::remove(ifn);
+
         _startFileNumber++;
+        _indexRecord.erase(_indexRecord.begin());
     }
+
+    // we should be able to assume that `_indexRecord` has some values now
+    // TODO: this can probably be refactored such that each item is updated
+    //       with the `+` operator individually, which might be faster than
+    //       what we're doing here, but this will do for now
+    _startIndex = _indexRecord.front().at(0);
+    _lastIndex = _indexRecord.back().front() + (_indexRecord.back().size() - 1);
 
     return WriteStatus::OK;
 }
@@ -298,6 +335,23 @@ void AshDB<ThingT>::findFileBoundaries()
         && boost::filesystem::file_size(datafile.data()) >= _options.filesize_max)
     {
         _activeFileNumber++;
+    }
+}
+
+template<class ThingT>
+void AshDB<ThingT>::findIndexBoundaries()
+{
+    _startIndex.reset();
+    _lastIndex.reset();
+
+    // load the accessor boundaries
+    if (_indexRecord.size() > 0)
+    {
+        assert(_indexRecord.front().size() > 0);
+        _startIndex = _indexRecord.front().at(0);
+
+        assert(_indexRecord.back().size() > 0);
+        _lastIndex = _indexRecord.back().front() + (_indexRecord.back().size() - 1);
     }
 }
 
