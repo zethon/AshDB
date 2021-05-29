@@ -1,5 +1,9 @@
 # AshDB
 
+![Windows Workflow](https://github.com/zethon/AshDB/actions/workflows/windows.yml/badge.svg)
+![macos Workflow](https://github.com/zethon/AshDB/actions/workflows/macos.yml/badge.svg)
+![Ubuntu Workflow](https://github.com/zethon/AshDB/actions/workflows/ubuntu.yml/badge.svg)
+
 AshDB is a simple index based storage library that provides a customizable segmented file layout. 
 
 The database does not support updates. This is designed to be a write-once-read-many database. The database is stored in segments, the max size of each segment can be configured. Likewise, the database can have a limit as a whole which when exceeded, the oldest segments of the database will be deleted.
