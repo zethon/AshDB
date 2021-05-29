@@ -91,16 +91,7 @@ public:
     std::uint64_t databaseSize() const;
 
     // returns the number of records in the database
-    std::size_t size() const
-    {
-        if (!_open || !_startIndex.has_value())
-        {
-            assert(!_lastIndex.has_value());
-            return 0;
-        }
-
-        return (*_lastIndex - *_startIndex) + 1;
-    }
+    std::size_t size() const;
 
     // data files have names like "data-0001.dat", the numbers returned
     // by these methods represent the "0001" portion of the filename
@@ -134,29 +125,7 @@ private:
     // be called AFTER `_indexRecord` has been setup
     void findIndexBoundaries();
 
-    bool writeIndexEntry(std::size_t offset)
-    {
-        std::string temp = activeIndexFile();
-        std::ofstream ofs(temp.data(), std::ios::out | std::ios::binary | std::ios::app);
-        if (!ofs.is_open())
-        {
-            return false;
-        }
-
-        ashdb::ashdb_write(ofs, offset);
-        ofs.close();
-
-        const auto recordCount = ((_activeFileNumber - _startFileNumber) + 1);
-        if (_indexRecord.size() < recordCount)
-        {
-            assert(_indexRecord.size() == recordCount - 1);
-            _indexRecord.push_back({});
-        }
-
-        _indexRecord.back().push_back(offset);
-
-        return true;
-    }
+    bool writeIndexEntry(std::size_t offset);
 
     std::string buildDataFilename(std::uint16_t x) const
     {
@@ -251,7 +220,7 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     auto destfilesize = boost::filesystem::exists(datafile)
             ? boost::filesystem::file_size(datafile.data()) : 0u;
 
-    // let's write the index before we write the data
+    // let's ashdb_write the index before we ashdb_write the data
     if (destfilesize == 0)
     {
         auto value = 0;
@@ -267,7 +236,7 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     }
 
     std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
-    ashdb::ashdb_write(ofs, thing);
+    ashdb_write(ofs, thing);
     ofs.close();
 
     // now that we've written the data, check the filesize once again
@@ -346,7 +315,7 @@ ThingT AshDB<ThingT>::read(std::size_t index)
             ifs.seekg(*readOffset);
 
             ThingT thing;
-            ashdb::ashdb_read(ifs, thing);
+            ashdb_read(ifs, thing);
             return thing;
         }
     }
@@ -420,6 +389,31 @@ void AshDB<ThingT>::findIndexBoundaries()
 }
 
 template<class ThingT>
+bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
+{
+    std::string temp = activeIndexFile();
+    std::ofstream ofs(temp.data(), std::ios::out | std::ios::binary | std::ios::app);
+    if (!ofs.is_open())
+    {
+        return false;
+    }
+
+    ashdb::ashdb_write(ofs, offset);
+    ofs.close();
+
+    const auto recordCount = ((_activeFileNumber - _startFileNumber) + 1);
+    if (_indexRecord.size() < recordCount)
+    {
+        assert(_indexRecord.size() == recordCount - 1);
+        _indexRecord.push_back({});
+    }
+
+    _indexRecord.back().push_back(offset);
+
+    return true;
+}
+
+template<class ThingT>
 std::uint64_t AshDB<ThingT>::databaseSize() const
 {
     std::uint64_t retval = 0;
@@ -439,6 +433,18 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
         retval += static_cast<std::uint64_t>(boost::filesystem::file_size(filepath));
     }
     return retval;
+}
+
+template<class ThingT>
+std::size_t AshDB<ThingT>::size() const
+{
+    if (!_open || !_startIndex.has_value())
+    {
+        assert(!_lastIndex.has_value());
+        return 0;
+    }
+
+    return (*_lastIndex - *_startIndex) + 1;
 }
 
 }; // namespace ashdb

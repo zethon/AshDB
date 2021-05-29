@@ -40,21 +40,21 @@ option.dbsize_max = 1024 * 1024 * 1024 * 10; // 10 GB
 // initialize the library
 AshDB<Person> db{"/path/to/db", "file-{}.db", options};
 
-// write out a bunch of data
+// ashdb_write out a bunch of data
 for (auto i = 0u; i < 1000; ++i)
 {
     const std::uint32_t age = i % 80;
     const std::string name = fmt::format("Person-{}", i);
     
     Person person{ age, name };
-    db.write(person);
+    db.ashdb_write(person);
 }
 
 // iterate over the data
 const auto max = db.size();
 for (auto x = 0u; x < max; +x)
 {
-    Person person = db.read(x);
+    Person person = db.ashdb_read(x);
     std::cout << "name: " << person.name << " age: " << person.age << '\n';
 }
 

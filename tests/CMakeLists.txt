@@ -24,4 +24,5 @@ set(SOURCE_FILES
 )
 
 create_test("basic" "${SOURCE_FILES}")
+create_test("class1" "${SOURCE_FILES}")
 
