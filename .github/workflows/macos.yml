@@ -5,14 +5,20 @@ on:
     branches:
       - master
     paths:
+      - .github/workflows/macos.yml
       - CMakeLists.txt
       - CMake/**
+      - examples/**
+      - include/**
       - src/**
       - tests/**
   pull_request:
     paths:
+      - .github/workflows/macos.yml
       - CMakeLists.txt
       - CMake/**
+      - examples/**
+      - include/**
       - src/**
       - tests/**
 
