@@ -26,7 +26,7 @@ The database options can be configured through the `Options` struct located in `
 `
 ## Performance
 
-This project is in such early development that the primary goal is to get basic functionality complete before optimizing performance. This does not mean that performance is being ignored, but it does mean that the path of least development will be favored for the time being.
+This project is in early development so that the primary goal is to get basic functionality complete before optimizing for performance. This does not mean that performance is being ignored but it does mean that the path of least development will be favored for the near future.
 
 ## Repository Contents
 
