@@ -2,7 +2,7 @@
 
 AshDB is a simple index based storage library that provides a customizable segmented file layout. 
 
-The database does not support updates. This is designed to be a write-one-read-many database. The database is stored in segments, the max size of which can be configured. Likewise, the database can have a size limit which when exceeded, the oldest segments of the database will be deleted.
+The database does not support updates. This is designed to be a write-once-read-many database. The database is stored in segments, the max size of each segment can be configured. Likewise, the database can have a limit as a whole which when exceeded, the oldest segments of the database will be deleted.
 
 ## Options
 
