@@ -56,11 +56,11 @@ public:
         _lastIndex.reset();
     }
 
-    OpenStatus open();
+    [[maybe_unused]] OpenStatus open();
     void close();
 
     WriteStatus write(const ThingT& thing);
-    ThingT read(std::size_t index);
+    [[maybe_unused]] ThingT read(std::size_t index);
 
     // returns the accessor boundaries ot the database, for example
     // if we use "db->at(i)", these functions tell us the range of "i"

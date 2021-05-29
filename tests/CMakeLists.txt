@@ -21,6 +21,7 @@ endfunction(create_test)
 
 set(SOURCE_FILES
     ../src/ashdb.cpp
+    ../src/status.cpp
     ../include/ashdb/ashdb.h
 )
 
