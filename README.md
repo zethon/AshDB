@@ -1,63 +1,93 @@
 # AshDB
 
-AshDB is a simple index based storage library that provides a segment file layout. 
+AshDB is a simple index based storage library that provides a customizable segmented file layout. 
 
-## Features
+The database does not support updates. This is designed to be a write-one-read-many database. The database is stored in segments, the max size of which can be configured. Likewise, the database can have a size limit which when exceeded, the oldest segments of the database will be deleted.
 
-## Building
+## Options
 
+The database options can be configured through the `Options` struct located in `include/ashdb/options.h`. 
+
+* `create_if_missing`: A boolean the defines if the database should be created if it doesn't exist. Existence is defined by whether or not the folder itself exists and not by any particular file or files. The default is true.
+
+* `error_if_exists`: A boolean that controls if an error should be generated if the database folder exists. The default is false.
+
+* `filesize_max`: An unsigned integer that defines in bytes the upper threshold of each segment. Segment files can exceed this value since individual records are not split across segments. The default is 0 which means the segments have no size limit and everything will be stored in one data file.
+
+* `database_max`: The upper threshold of the database size. Database size is calculated by the sum of all the database files. Index files are **not** included in this total. When the total size is exceeded, the oldest data file is deleted. The default value is 0 which means the database has no size limit.
+
+* `prefix`: The prefix used for data files and index files. For example a value of "data" would give a filename like `data-00001.ash`. The default value is "data".
+
+* `extension`: The extension used for data files, and prefixed for the index file extensions. For example, a value of "bin" would give a data file with a name "data-00001.bin" and an index file with the name of "data-00001.binidx". The default is "ash".
+`
 ## Performance
 
-This is in such early development that I am trying to get basic functionality complete before I worry too much about performance. That doesn't mean I'm completely ignoring performance, but it does mean that I will favor getting things done quick for right now. 
+This project is in such early development that the primary goal is to get basic functionality complete before optimizing performance. This does not mean that performance is being ignored, but it does mean that the path of least development will be favored for the time being.
 
-```cpp
-// define custom class
-class Person
+## Repository Contents
+
+The public interface is in `include/ashdb/*.h`. 
+
+Header files:
+
+* **include/ashdb/ashdb.h**: Main interface to the DB.
+* **include/ashdb/options.h**: Control over the database, including control over individual file size, max database size, and more.
+* **include/ashdb/status.h**: Status returned from public functions that represent various errors.
+* **include/ashdb/primitives.h**: Implementation of reading and writing primitive C++ types.
+
+## Example
+
+```cpp#include <iostream>
+#include <ashdb/ashdb.h>
+
+namespace app
 {
-    std::uint32_t age;
-    std::string name;
+
+struct Point
+{
+    std::uint32_t x;
+    std::uint32_t y;
+    std::uint32_t z;
 };
 
-// define accessors to your class using primitives
-// give to you by the library
-void ashdb_write(std::ostream& stream, const Person& person)
+void ashdb_write(std::ostream& stream, const Point& p)
 {
-    ashdb::write_data(stream, person.age);
-    ashdb::write_data(stream, person.name);
+    ashdb::ashdb_write(stream, p.x);
+    ashdb::ashdb_write(stream, p.y);
+    ashdb::ashdb_write(stream, p.z);
 }
 
-void ashdb_read(std::istream& istream, Person& person)
+void ashdb_read(std::istream& stream, Point& p)
 {
-    ashdb::read_data(istream, person.age);
-    ashdb::read_data(istream, person.name);
+    ashdb::ashdb_read(stream, p.x);
+    ashdb::ashdb_read(stream, p.y);
+    ashdb::ashdb_read(stream, p.z);
 }
 
-// set your options
-ashdb::Options options;
-options.filesize_max = 1024 * 1024 * 10; // 10 MB
-option.dbsize_max = 1024 * 1024 * 1024 * 10; // 10 GB
-
-// initialize the library
-AshDB<Person> db{"/path/to/db", "file-{}.db", options};
-
-// ashdb_write out a bunch of data
-for (auto i = 0u; i < 1000; ++i)
-{
-    const std::uint32_t age = i % 80;
-    const std::string name = fmt::format("Person-{}", i);
-    
-    Person person{ age, name };
-    db.ashdb_write(person);
 }
 
-// iterate over the data
-const auto max = db.size();
-for (auto x = 0u; x < max; +x)
+int main()
 {
-    Person person = db.ashdb_read(x);
-    std::cout << "name: " << person.name << " age: " << person.age << '\n';
-}
+    ashdb::Options options;
+    options.prefix = "points";
+    options.extension = "bin";
+    options.filesize_max = 1024 * 1024 * 5;
 
-// close the database
-db.close();
+    ashdb::AshDB<app::Point> db{"./testdb", options};
+    if (auto status = db.open(); status != ashdb::OpenStatus::OK)
+    {
+        std::cerr << ashdb::ToString(status);
+        return 1;
+    }
+
+    for (auto i = 0u; i < 10000; ++i)
+    {
+        app::Point pt { i, 10000 - i, i + i };
+        db.write(pt);
+    }
+
+    db.close();
+
+    return 0;
+}
 ```
