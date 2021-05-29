@@ -4,6 +4,7 @@
 #include "Test.h"
 
 #include "../include/ashdb/ashdb.h"
+#include "../include/ashdb/status.h"
 
 namespace data = boost::unit_test::data;
 
@@ -28,6 +29,21 @@ BOOST_AUTO_TEST_CASE(file_pattern)
     BOOST_CHECK_THROW(ashdb::BuildFilename("/usr/data", "file", "dat", 165535), std::runtime_error);
 }
 #endif
+
+BOOST_AUTO_TEST_CASE(status_to_string_tests)
+{
+    ashdb::OpenStatus status;
+
+    BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::OK) == "OK");
+    BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::EXISTS) == "EXISTS");
+    BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::NOT_FOUND) == "NOT_FOUND");
+    BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::INVALID_PREFIX) == "INVALID_PREFIX");
+    BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::INVALID_EXTENSION) == "INVALID_EXTENSION");
+    BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::ALREADY_OPEN) == "ALREADY_OPEN");
+
+    BOOST_TEST(ashdb::ToString(ashdb::WriteStatus::OK) == "OK");
+    BOOST_TEST(ashdb::ToString(ashdb::WriteStatus::NOT_OPEN) == "NOT_OPEN");
+}
 
 BOOST_AUTO_TEST_CASE(db_open)
 {
@@ -90,6 +106,7 @@ BOOST_AUTO_TEST_CASE(db_write1)
     options.filesize_max = 10;
 
     std::unique_ptr<StringDB> db = std::make_unique<StringDB>(tempFolder, options);
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::NOT_OPEN);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
     BOOST_TEST(!db->startIndex().has_value());
     BOOST_TEST(!db->lastIndex().has_value());

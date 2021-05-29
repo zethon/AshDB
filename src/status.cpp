@@ -39,7 +39,7 @@ std::string ToString(WriteStatus status)
         case WriteStatus::OK:
             return "OK";
         case WriteStatus::NOT_OPEN:
-            return "EXISTS";
+            return "NOT_OPEN";
     }
 }
 
