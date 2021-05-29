@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include <atomic>
+#include <optional>
 
 #include <boost/filesystem.hpp>
 
