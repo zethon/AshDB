@@ -31,4 +31,27 @@ std::string BuildFilename(const std::string& folder,
     return path.string();
 }
 
+std::vector<std::size_t> ReadIndexFile(const std::string& filename)
+{
+    std::vector<std::size_t> retval;
+
+    if (!boost::filesystem::exists(filename))
+    {
+        return {};
+    }
+
+    if (std::ifstream ifs(filename.data(), std::ios_base::binary);
+        ifs.is_open())
+    {
+        while (ifs.peek() != EOF)
+        {
+            std::size_t value;
+            ashdb_read(ifs, value);
+            retval.push_back(value);
+        }
+    }
+
+    return retval;
+}
+
 } // namespace ashdb

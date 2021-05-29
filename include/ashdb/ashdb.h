@@ -14,6 +14,8 @@
 namespace ashdb
 {
 
+using IndexRecord = std::vector<std::vector<std::size_t>>;
+
 constexpr auto INDEX_EXTENSION = "idx";
 constexpr auto VALIDCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvqxyz0123456789-_";
 
@@ -22,30 +24,7 @@ std::string BuildFilename(const std::string& folder,
                           const std::string& extension,
                           std::uint64_t fileindex);
 
-inline std::vector<std::size_t> ReadIndexFile(const std::string& filename)
-{
-    std::vector<std::size_t> retval;
-
-    if (!boost::filesystem::exists(filename))
-    {
-        return {};
-    }
-
-    if (std::ifstream ifs(filename.data(), std::ios_base::binary);
-        ifs.is_open())
-    {
-        while (ifs.peek() != EOF)
-        {
-            std::size_t value;
-            ashdb_read(ifs, value);
-            retval.push_back(value);
-        }
-    }
-
-    return retval;
-}
-
-using IndexRecord = std::vector<std::vector<std::size_t>>;
+std::vector<std::size_t> ReadIndexFile(const std::string& filename);
 
 template<class ThingT>
 class AshDB
@@ -60,8 +39,8 @@ class AshDB
     std::optional<std::size_t>  _lastIndex = 0;
 
     // the current first and last file numbers
-    std::uint16_t           _startFileNumber = 0;
-    std::uint16_t           _activeFileNumber = 0;
+    std::uint16_t           _startRecordNumber = 0;
+    std::uint16_t           _activeRecordNumber = 0;
 
     std::mutex              _readWriteMutex;
 
@@ -98,21 +77,21 @@ public:
 
     // data files have names like "data-0001.dat", the numbers returned
     // by these methods represent the "0001" portion of the filename
-    std::uint16_t startRecordNumber() const { return _startFileNumber; }
-    std::uint16_t activeRecordNumber() const { return _activeFileNumber; }
+    std::uint16_t startRecordNumber() const { return _startRecordNumber; }
+    std::uint16_t activeRecordNumber() const { return _activeRecordNumber; }
 
     // returns the full path of the file to which the next record will
     // be written
     std::string activeDataFile() const
     {
-        return buildDataFilename(_activeFileNumber);
+        return buildDataFilename(_activeRecordNumber);
     }
 
     // returns the full path of the file to which the next index entry
     // will be written
     std::string activeIndexFile() const
     {
-        return buildIndexFilename(_activeFileNumber);
+        return buildIndexFilename(_activeRecordNumber);
     }
 
     // records the vector of vector that keeps track of all the records
@@ -120,6 +99,10 @@ public:
     const IndexRecord indexRecord() const { return _indexRecord; }
 
 private:
+    // scans the database folder to establish the min and max records for
+    // the data files. For example, if we have the files data-00002.dat,
+    // data-00003.dat, data-00004.dat, then it will set the start and
+    // active record numbers to 2 and 4 respectively
     void findFileBoundaries();
 
     // find the boundaries of the accessor methods, i.e. we access
@@ -185,7 +168,7 @@ OpenStatus AshDB<ThingT>::open()
 
     // load the record-index
     _indexRecord.clear();
-    for (auto i = _startFileNumber; i <= _activeFileNumber; ++i)
+    for (auto i = _startRecordNumber; i <= _activeRecordNumber; ++i)
     {
         const auto indexFilename = buildIndexFilename(i);
         if (boost::filesystem::exists(indexFilename))
@@ -246,18 +229,18 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     destfilesize = boost::filesystem::file_size(datafile.data());
     if (_options.filesize_max > 0 && destfilesize >= _options.filesize_max)
     {
-        _activeFileNumber++;
+        _activeRecordNumber++;
     }
 
     if (_options.database_max > 0
         && databaseSize() > _options.database_max)
     {
-        const auto fn = buildDataFilename(_startFileNumber);
-        const auto ifn = buildIndexFilename(_startFileNumber);
+        const auto fn = buildDataFilename(_startRecordNumber);
+        const auto ifn = buildIndexFilename(_startRecordNumber);
         boost::filesystem::remove(fn);
         boost::filesystem::remove(ifn);
 
-        _startFileNumber++;
+        _startRecordNumber++;
         _indexRecord.erase(_indexRecord.begin());
     }
 
@@ -285,7 +268,7 @@ ThingT AshDB<ThingT>::read(std::size_t index)
     // TODO: this is awful and needs to be refactored, but I just want to get
     // the unit tests in place, so it will do for now
     std::optional<std::size_t> readOffset;
-    auto currentRecord = _startFileNumber;
+    auto currentRecord = _startRecordNumber;
     for (const auto& offsets : _indexRecord)
     {
         if (index < (offsets.front() + offsets.size()))
@@ -362,15 +345,15 @@ void AshDB<ThingT>::findFileBoundaries()
         }
     }
 
-    _startFileNumber = start;
-    _activeFileNumber = std::max(_startFileNumber, end);
+    _startRecordNumber = start;
+    _activeRecordNumber = std::max(_startRecordNumber, end);
 
     if (const auto datafile = activeDataFile();
         _options.filesize_max != 0
         && boost::filesystem::exists(datafile.data())
         && boost::filesystem::file_size(datafile.data()) >= _options.filesize_max)
     {
-        _activeFileNumber++;
+        _activeRecordNumber++;
     }
 }
 
@@ -404,7 +387,7 @@ bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     ashdb::ashdb_write(ofs, offset);
     ofs.close();
 
-    const auto recordCount = ((_activeFileNumber - _startFileNumber) + 1);
+    const auto recordCount = ((_activeRecordNumber - _startRecordNumber) + 1);
     if (_indexRecord.size() < recordCount)
     {
         assert(_indexRecord.size() == recordCount - 1);
@@ -420,7 +403,7 @@ template<class ThingT>
 std::uint64_t AshDB<ThingT>::databaseSize() const
 {
     std::uint64_t retval = 0;
-    for (auto i = _startFileNumber; i <= _activeFileNumber; ++i)
+    for (auto i = _startRecordNumber; i <= _activeRecordNumber; ++i)
     {
         const auto filename = ashdb::BuildFilename(
                 _dbfolder, _options.prefix, _options.extension, i);
@@ -429,7 +412,7 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
 
         if (!boost::filesystem::exists(filepath))
         {
-            assert(i == _activeFileNumber);
+            assert(i == _activeRecordNumber);
             break;
         }
 
