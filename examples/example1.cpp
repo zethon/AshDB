@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 #include <ashdb/ashdb.h>
 
 namespace app
@@ -25,10 +26,25 @@ void ashdb_read(std::istream& stream, Point& p)
     ashdb::ashdb_read(stream, p.z);
 }
 
+} // namespace app
+
+namespace std
+{
+
+std::ostream& operator<<(std::ostream& out, const app::Point& pt)
+{
+    out << "x=" << pt.x << ", y=" << pt.y << ", z=" << pt.z;
+    return out;
 }
+
+} // namespace std
 
 int main()
 {
+    // we will generate some random numbers later
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
     ashdb::Options options;
     options.prefix = "points";
     options.extension = "bin";
@@ -45,6 +61,16 @@ int main()
     {
         app::Point pt { i, 10000 - i, i + i };
         db.write(pt);
+    }
+
+    // load a bunch of random points and print them
+    for (auto x = 0u; x < 10000; ++x)
+    {
+        std::uniform_int_distribution<> distrib(0, 99);
+        std::uint32_t i = static_cast<std::uint32_t>(distrib(gen));
+
+        auto pt = db.read(i);
+        std::cout << pt << '\n';
     }
 
     db.close();
