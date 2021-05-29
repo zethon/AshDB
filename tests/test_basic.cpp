@@ -13,6 +13,7 @@ static const char* piStr = "3.14159265358979323846264338327950288419716939937510
 
 BOOST_AUTO_TEST_SUITE(basic)
 
+#ifndef _WINDOWS
 BOOST_AUTO_TEST_CASE(file_pattern)
 {
     auto filename = ashdb::BuildFilename("/usr/data", "file", "dat", 57);
@@ -26,6 +27,7 @@ BOOST_AUTO_TEST_CASE(file_pattern)
 
     BOOST_CHECK_THROW(ashdb::BuildFilename("/usr/data", "file", "dat", 165535), std::runtime_error);
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(db_open)
 {
