@@ -16,4 +16,5 @@ add_library(AshDBLib STATIC
 
 target_link_libraries(AshDBLib
     ${CONAN_LIBS}
+    coverage_config
 )

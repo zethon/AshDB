@@ -3,6 +3,7 @@
 ![Windows Workflow](https://github.com/zethon/AshDB/actions/workflows/windows.yml/badge.svg)
 ![macos Workflow](https://github.com/zethon/AshDB/actions/workflows/macos.yml/badge.svg)
 ![Ubuntu Workflow](https://github.com/zethon/AshDB/actions/workflows/ubuntu.yml/badge.svg)
+[![codecov](https://codecov.io/gh/zethon/AshDB/branch/master/graph/badge.svg?token=RwtLsgXsEa)](https://codecov.io/gh/zethon/AshDB)
 
 AshDB is a simple index based storage library that provides a customizable segmented file layout. 
 
