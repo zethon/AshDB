@@ -10,6 +10,7 @@ function(create_test testname FILES)
         PUBLIC
             AshDBLib
             ${CONAN_LIBS_BOOST}
+            coverage_config
     )
 
     add_test(NAME test_${testname}
