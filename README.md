@@ -29,7 +29,28 @@ The database options can be configured through the `Options` struct located in `
 `
 ## Performance
 
-This project is in early development so that the primary goal is to get basic functionality complete before optimizing for performance. This does not mean that performance is being ignored but it does mean that the path of least development will be favored for the near future.
+Though there are still some planned public API calls to be implemented, the primary _vision_ for the API is complete. Pre-release development focused on the initial implementation, with future releases planned to focus on performance. 
+
+```
+Run on (16 X 2300 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x8)
+  L1 Instruction 32 KiB (x8)
+  L2 Unified 256 KiB (x8)
+  L3 Unified 16384 KiB (x1)
+Load Average: 2.11, 2.01, 1.79
+--------------------------------------------------------------------
+Benchmark                          Time             CPU   Iterations
+--------------------------------------------------------------------
+BM_DBCreateOpen                25794 ns        25792 ns        26568
+BM_DBOpenClose                 25181 ns        25181 ns        27629
+BM_DBWriteInt                  91354 ns        91269 ns         7487
+BM_DBMultipleIntWrites       9255495 ns      9255213 ns           75
+BM_DBRandomIntReads          1845182 ns      1846939 ns          378
+BM_DBWriteStruct               97525 ns        95837 ns         7297
+BM_DBMultipleStructWrites   10170736 ns     10177726 ns           73
+BM_DBRandomStructReads       1975045 ns      1977746 ns          354
+```
 
 ## Repository Contents
 

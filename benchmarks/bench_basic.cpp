@@ -22,7 +22,7 @@ static void BM_DBCreateOpen(benchmark::State& state)
     options.create_if_missing = true;
     options.error_if_exists = false;
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         StringDB db{ tempfolder, options };
         db.open();
@@ -40,7 +40,7 @@ static void BM_DBOpenClose(benchmark::State& state)
 
     StringDB db{ tempfolder, options };
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         db.open();
         db.close();
@@ -58,7 +58,7 @@ static void BM_DBWriteInt(benchmark::State& state)
     ashdb::AshDB<int> db{ tempfolder, options };
     db.open();
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         db.write(3);
     }
@@ -75,7 +75,7 @@ static void BM_DBMultipleIntWrites(benchmark::State& state)
     ashdb::AshDB<int> db{ tempfolder, options };
     db.open();
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         for (auto i = 0u; i < 100u; ++i)
         {
@@ -103,12 +103,14 @@ static void BM_DBRandomIntReads(benchmark::State& state)
         db.write(3);
     }
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         for (auto i = 0u; i < 100u; ++i)
         {
+            state.PauseTiming();
             std::uniform_int_distribution<> distrib(0, 99);
             std::uint32_t xi = static_cast<std::uint32_t>(distrib(gen));
+            state.ResumeTiming();
             db.read(xi);
         }
     }
@@ -136,7 +138,7 @@ static void BM_DBWriteStruct(benchmark::State& state)
     p.salary = 12345.67;
     p.married = true;
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         db.write(p);
     }
@@ -154,10 +156,11 @@ static void BM_DBMultipleStructWrites(benchmark::State& state)
     ashdb::AshDB<project::Person> db{ tempfolder, options };
     db.open();
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         for (auto i = 0u; i < 100; ++i)
         {
+            state.PauseTiming();
             project::Person p;
             p.name.first = "Firstname" + std::to_string(i);
             p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
@@ -165,6 +168,7 @@ static void BM_DBMultipleStructWrites(benchmark::State& state)
             p.age = (i % 80);
             p.salary = (i % 5) * 12345.67;
             p.married = (i % 2) == 0;
+            state.ResumeTiming();
 
             db.write(p);
         }
@@ -198,12 +202,15 @@ static void BM_DBRandomStructReads(benchmark::State& state)
         db.write(p);
     }
 
-    for (auto _ : state)
+    while (state.KeepRunning())
     {
         for (auto i = 0u; i < 100u; ++i)
         {
+            state.PauseTiming();
             std::uniform_int_distribution<> distrib(0, 99);
             std::uint32_t xi = static_cast<std::uint32_t>(distrib(gen));
+            state.ResumeTiming();
+
             db.read(xi);
         }
     }
