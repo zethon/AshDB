@@ -6,6 +6,9 @@
 namespace project
 {
 
+class Person;
+using PersonDB = ashdb::AshDB<project::Person>;
+
 struct Name
 {
     std::string first;

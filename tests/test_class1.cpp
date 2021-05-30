@@ -8,7 +8,7 @@
 #include "../include/ashdb/ashdb.h"
 #include "../include/ashdb/primitives.h"
 
-#include "test_class1.h"
+#include "Person.h"
 
 namespace data = boost::unit_test::data;
 

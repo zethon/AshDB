@@ -23,3 +23,4 @@ set(SOURCE_FILES
 )
 
 create_benchmark("basic" "${SOURCE_FILES}")
+create_benchmark("batch" "${SOURCE_FILES}")
