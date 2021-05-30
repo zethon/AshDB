@@ -7,10 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(BUILD_UNIT_TESTS "Build unit tests (default OFF)" OFF)
 option(BUILD_EXAMPLES "Build examples (default OFF)" OFF)
 option(CODE_COVERAGE "Enable coverage reporting (default OFF)" OFF)
+option(BUILD_BENCHMARKS "Build benchmark tests (default OFF)" OFF)
 
 include(CMake/conan.cmake)
 conan_cmake_run(REQUIRES
     boost/1.74.0
+    benchmark/1.5.3
     BASIC_SETUP CMAKE_TARGETS NO_OUTPUT_DIRS
     BUILD missing
     OPTIONS
@@ -37,6 +39,10 @@ add_subdirectory(src)
 
 if (BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if (BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
 endif()
 
 if (BUILD_UNIT_TESTS)
