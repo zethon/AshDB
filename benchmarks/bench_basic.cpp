@@ -217,4 +217,84 @@ static void DBRandomStructReads(benchmark::State& state)
 }
 BENCHMARK(DBRandomStructReads);
 
+// comparison with "DBMultipleStructWrites"
+static void BatchWriteMultipleFiles(benchmark::State& state)
+{
+    auto tempfolder = (tempFolder("DBStructMultipleWrites")).string();
+
+    ashdb::Options options;
+    options.create_if_missing = true;
+    options.error_if_exists = false;
+
+    ashdb::AshDB<project::Person> db{ tempfolder, options };
+    db.open();
+
+    while (state.KeepRunning())
+    {
+        project::PersonDB::Batch batch;
+        for (auto i = 0u; i < 100; ++i)
+        {
+            state.PauseTiming();
+            project::Person p;
+            p.name.first = "Firstname" + std::to_string(i);
+            p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
+            p.name.last = "Lastname" + std::to_string(i);
+            p.age = (i % 80);
+            p.salary = (i % 5) * 12345.67;
+            p.married = (i % 2) == 0;
+            batch.push_back(p);
+            state.ResumeTiming();
+        }
+
+        db.write(batch);
+    }
+}
+BENCHMARK(BatchWriteMultipleFiles);
+
+// compare to "DBRandomStructReads"
+static void BatchReadMultipleFiles(benchmark::State& state)
+{
+    auto tempfolder = (tempFolder("BatchReadMultipleFiles")).string();
+
+    ashdb::Options options;
+    options.filesize_max = 100;
+
+    ashdb::AshDB<project::Person> db{ tempfolder, options };
+    db.open();
+
+    project::PersonDB::Batch batch;
+    for (auto i = 0u; i < 200; ++i)
+    {
+        project::Person p;
+        p.name.first = "Firstname" + std::to_string(i);
+        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
+        p.name.last = "Lastname" + std::to_string(i);
+        p.age = (i % 80);
+        p.salary = (i % 5) * 12345.67;
+        p.married = (i % 2) == 0;
+
+        batch.push_back(p);
+    }
+    db.write(batch);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    while (state.KeepRunning())
+    {
+        state.PauseTiming();
+        std::uniform_int_distribution<> distrib(0, 99);
+        std::uint32_t idx = static_cast<std::uint32_t>(distrib(gen));
+        state.ResumeTiming();
+
+        // read 100 records at a random idx
+        auto b = db.read(idx, 100);
+
+        state.PauseTiming();
+        b.clear(); // do something to avoid unused var warning
+        state.ResumeTiming();
+    }
+}
+BENCHMARK(BatchReadMultipleFiles);
+
 BENCHMARK_MAIN();

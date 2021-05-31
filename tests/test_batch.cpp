@@ -177,10 +177,9 @@ BOOST_AUTO_TEST_CASE(batch_read1)
     }
 }
 
-
 BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_write1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_read_write_multiple_files")).string();
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -222,8 +221,6 @@ BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
     // test 100 random records
     for (auto idx = 0; idx < 100; ++idx)
     {
-
-
         auto temp = db->read(i);
 
         project::Person p;
@@ -236,6 +233,18 @@ BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
 
         BOOST_TEST((temp == p));
     }
+}
+
+BOOST_AUTO_TEST_CASE(batch_errors)
+{
+    auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
+
+    ashdb::Options options;
+    options.filesize_max = 100;
+
+    auto db = std::make_unique<project::PersonDB>(tempFolder, options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_CHECK_THROW(db->read(10,100), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
