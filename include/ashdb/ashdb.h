@@ -55,6 +55,9 @@ public:
     [[maybe_unused]]
     ThingT read(std::size_t index);
 
+    [[nodiscard]]
+    Batch read(std::size_t index, std::size_t count);
+
     // returns the accessor boundaries ot the database, for example
     // if we use "db->at(i)", these functions tell us the range of "i"
     auto startIndex() const { return _startIndex; }
@@ -73,7 +76,7 @@ public:
     std::uint16_t startRecordNumber() const { return _startRecordNumber; }
     std::uint16_t activeRecordNumber() const { return _activeRecordNumber; }
 
-    // returns the full path of the file to which the next record will
+    // returns the full path of the file tobench which the next record will
     // be written
     std::string activeDataFile() const
     {
@@ -122,6 +125,42 @@ private:
     {
         const auto temp = _options.extension + INDEX_EXTENSION;
         return ashdb::BuildFilename(_dbfolder, _options.prefix, temp, x);
+    }
+
+    // TODO: this could be improved
+    using IndexDetails = std::tuple<std::size_t, std::size_t>;
+    IndexDetails findIndexDetails(std::size_t index)
+    {
+        if (index < _startIndex || index > _lastIndex)
+        {
+            std::stringstream ss;
+            ss << "index " << index << " is out of bounds";
+            throw std::runtime_error(ss.str());
+        }
+
+        std::optional<std::size_t> localIndex = 0;
+        std::size_t currentRecord = 0;
+        for (const auto& offsets : _indexRecord)
+        {
+            if (index < (offsets.front() + offsets.size()))
+            {
+                localIndex = index - offsets.front();
+                break;
+            }
+            else
+            {
+                currentRecord++;
+            }
+        }
+
+        if (!localIndex.has_value())
+        {
+            std::stringstream ss;
+            ss << "index " << index << " could not be found";
+            throw std::runtime_error(ss.str());
+        }
+
+        return IndexDetails{ currentRecord, *localIndex };
     }
 
     //////////////////////////////////////////////
@@ -305,48 +344,72 @@ ThingT AshDB<ThingT>::read(std::size_t index)
         throw std::runtime_error(ss.str());
     }
 
-    // TODO: this is awful and needs to be refactored, but I just want to get
-    // the unit tests in place, so it will do for now
-    std::optional<std::size_t> readOffset;
-    auto currentRecord = _startRecordNumber;
-    for (const auto& offsets : _indexRecord)
+    auto [currentRecord, localIndex] = findIndexDetails(index);
+    auto readOffset = localIndex == 0 ? 0 : _indexRecord[currentRecord][localIndex];
+
+    const auto dataFile = buildDataFilename(currentRecord);
+    std::ifstream ifs(dataFile.data(), std::ios_base::binary);
+    if (!ifs.is_open())
     {
-        if (index < (offsets.front() + offsets.size()))
-        {
-            auto localIndex = index - offsets.front();
-            if (localIndex == 0)
-            {
-                // the first offset of the record-index tells us the index number
-                // of the first item in that index file and not the offset, we can
-                // safely assume the offset of the first item in a data file is always 0
-                readOffset = 0;
-            }
-            else
-            {
-                readOffset = offsets.at(localIndex);
-            }
-            break;
-        }
-        else
-        {
-            currentRecord++;
-        }
+        return {};
     }
 
-    if (readOffset.has_value())
+    ifs.seekg(readOffset);
+
+    ThingT thing;
+    ashdb_read(ifs, thing);
+    return thing;
+}
+
+template<class ThingT>
+auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>::Batch
+{
+    std::scoped_lock lock{_readWriteMutex};
+
+    if (index < _startIndex || index > _lastIndex)
     {
-        const auto dataFile = buildDataFilename(currentRecord);
-        if (std::ifstream ifs(dataFile.data(), std::ios_base::binary); ifs.is_open())
+        std::stringstream ss;
+        ss << "index " << index << " is out of bounds";
+        throw std::runtime_error(ss.str());
+    }
+
+    AshDB<ThingT>::Batch batch;
+    const auto endIndex = index + count;
+    auto [segment, offsetIndex] = findIndexDetails(index);
+
+    for (auto i = index; i < (index + count);)
+    {
+        const auto datafile = this->buildDataFilename(segment);
+        std::ifstream ifs(datafile.data(), std::ios_base::binary);
+        if (!ifs.is_open())
         {
-            ifs.seekg(*readOffset);
+            std::stringstream ss;
+            ss << "could not open file '" << datafile << "'";
+            throw std::runtime_error(ss.str());
+        }
+
+        auto localMax = _indexRecord[segment].size();
+        if (endIndex <= (_indexRecord[segment][0] + _indexRecord[segment].size()))
+        {
+            localMax = endIndex - _indexRecord[segment][0];
+        }
+
+        for (; offsetIndex < localMax; ++i, ++offsetIndex)
+        {
+            auto readOffset = offsetIndex == 0 ? 0 : _indexRecord[segment][offsetIndex];
+            ifs.seekg(readOffset);
 
             ThingT thing;
             ashdb_read(ifs, thing);
-            return thing;
+            batch.push_back(std::move(thing));
         }
+
+        ifs.close();
+        offsetIndex = 0;
+        segment++;
     }
 
-    return {};
+    return batch;
 }
 
 template<class ThingT>
