@@ -296,9 +296,10 @@ WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterat
         ashdb_write(ofs, *begin);
         ++begin;
 
-        updateIndexing();
+        const auto openFilesize = ofs.tellp();
+
         if (_options.filesize_max > 0
-            && ofs.tellp() >= _options.filesize_max)
+            && openFilesize >= _options.filesize_max)
         {
             ofs.close();
             _activeRecordNumber++;
@@ -328,6 +329,8 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
         {
             return status;
         }
+
+        updateIndexing();
     }
 
     return ashdb::WriteStatus::OK;

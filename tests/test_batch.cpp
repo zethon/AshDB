@@ -235,6 +235,30 @@ BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
     }
 }
 
+BOOST_AUTO_TEST_CASE(batch_trim)
+{
+    auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
+
+    ashdb::Options options;
+    options.filesize_max = 100;
+    options.database_max = 300;
+
+    auto db = std::make_unique<StringDB>(tempFolder, options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+
+    StringDB::Batch batch;
+    batch.push_back(e100Chars);
+    batch.push_back(e100Chars);
+    batch.push_back(e100Chars);
+
+    BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->size() == 2);
+    BOOST_TEST(db->startRecordNumber() == 1);
+    BOOST_TEST(db->activeRecordNumber() == 3);
+
+    BOOST_CHECK_THROW(batch = db->read(0,10), std::runtime_error);
+}
+
 BOOST_AUTO_TEST_CASE(batch_errors)
 {
     auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
@@ -244,7 +268,7 @@ BOOST_AUTO_TEST_CASE(batch_errors)
 
     auto db = std::make_unique<project::PersonDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_CHECK_THROW(db->read(10,100), std::runtime_error);
+    BOOST_CHECK_THROW(auto status = db->read(10,100), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
