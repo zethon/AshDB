@@ -14,9 +14,9 @@ boost::filesystem::path tempFolder(const std::string& subfolder)
     return temp;
 }
 
-static void BM_DBCreateOpen(benchmark::State& state)
+static void DBCreateOpen(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBCreateOpen")).string();
+    auto tempfolder = (tempFolder("DBCreateOpen")).string();
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -28,11 +28,11 @@ static void BM_DBCreateOpen(benchmark::State& state)
         db.open();
     }
 }
-BENCHMARK(BM_DBCreateOpen);
+BENCHMARK(DBCreateOpen);
 
-static void BM_DBOpenClose(benchmark::State& state)
+static void DBOpenClose(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBOpenClose")).string();
+    auto tempfolder = (tempFolder("DBOpenClose")).string();
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -46,11 +46,11 @@ static void BM_DBOpenClose(benchmark::State& state)
         db.close();
     }
 }
-BENCHMARK(BM_DBOpenClose);
+BENCHMARK(DBOpenClose);
 
-static void BM_DBWriteInt(benchmark::State& state)
+static void DBWriteInt(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBWriteInt")).string();
+    auto tempfolder = (tempFolder("DBWriteInt")).string();
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -63,11 +63,11 @@ static void BM_DBWriteInt(benchmark::State& state)
         db.write(3);
     }
 }
-BENCHMARK(BM_DBWriteInt);
+BENCHMARK(DBWriteInt);
 
-static void BM_DBMultipleIntWrites(benchmark::State& state)
+static void DBMultipleIntWrites(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBMultipleIntWrites")).string();
+    auto tempfolder = (tempFolder("DBMultipleIntWrites")).string();
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -83,11 +83,11 @@ static void BM_DBMultipleIntWrites(benchmark::State& state)
         }
     }
 }
-BENCHMARK(BM_DBMultipleIntWrites);
+BENCHMARK(DBMultipleIntWrites);
 
-static void BM_DBRandomIntReads(benchmark::State& state)
+static void DBRandomIntReads(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBRandomIntReads")).string();
+    auto tempfolder = (tempFolder("DBRandomIntReads")).string();
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -115,13 +115,13 @@ static void BM_DBRandomIntReads(benchmark::State& state)
         }
     }
 }
-BENCHMARK(BM_DBRandomIntReads);
+BENCHMARK(DBRandomIntReads);
 
-#include "../tests/test_class1.h"
+#include "../tests/Person.h"
 
-static void BM_DBWriteStruct(benchmark::State& state)
+static void DBWriteStruct(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBWriteStruct")).string();
+    auto tempfolder = (tempFolder("DBWriteStruct")).string();
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -143,11 +143,11 @@ static void BM_DBWriteStruct(benchmark::State& state)
         db.write(p);
     }
 }
-BENCHMARK(BM_DBWriteStruct);
+BENCHMARK(DBWriteStruct);
 
-static void BM_DBMultipleStructWrites(benchmark::State& state)
+static void DBMultipleStructWrites(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBStructMultipleWrites")).string();
+    auto tempfolder = (tempFolder("DBStructMultipleWrites")).string();
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -174,11 +174,11 @@ static void BM_DBMultipleStructWrites(benchmark::State& state)
         }
     }
 }
-BENCHMARK(BM_DBMultipleStructWrites);
+BENCHMARK(DBMultipleStructWrites);
 
-static void BM_DBRandomStructReads(benchmark::State& state)
+static void DBRandomStructReads(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BM_DBRandomIntReads")).string();
+    auto tempfolder = (tempFolder("DBRandomIntReads")).string();
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -215,6 +215,86 @@ static void BM_DBRandomStructReads(benchmark::State& state)
         }
     }
 }
-BENCHMARK(BM_DBRandomStructReads);
+BENCHMARK(DBRandomStructReads);
+
+// comparison with "DBMultipleStructWrites"
+static void BatchWriteMultipleFiles(benchmark::State& state)
+{
+    auto tempfolder = (tempFolder("DBStructMultipleWrites")).string();
+
+    ashdb::Options options;
+    options.create_if_missing = true;
+    options.error_if_exists = false;
+
+    ashdb::AshDB<project::Person> db{ tempfolder, options };
+    db.open();
+
+    while (state.KeepRunning())
+    {
+        project::PersonDB::Batch batch;
+        for (auto i = 0u; i < 100; ++i)
+        {
+            state.PauseTiming();
+            project::Person p;
+            p.name.first = "Firstname" + std::to_string(i);
+            p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
+            p.name.last = "Lastname" + std::to_string(i);
+            p.age = (i % 80);
+            p.salary = (i % 5) * 12345.67;
+            p.married = (i % 2) == 0;
+            batch.push_back(p);
+            state.ResumeTiming();
+        }
+
+        db.write(batch);
+    }
+}
+BENCHMARK(BatchWriteMultipleFiles);
+
+// compare to "DBRandomStructReads"
+static void BatchReadMultipleFiles(benchmark::State& state)
+{
+    auto tempfolder = (tempFolder("BatchReadMultipleFiles")).string();
+
+    ashdb::Options options;
+    options.filesize_max = 100;
+
+    ashdb::AshDB<project::Person> db{ tempfolder, options };
+    db.open();
+
+    project::PersonDB::Batch batch;
+    for (auto i = 0u; i < 200; ++i)
+    {
+        project::Person p;
+        p.name.first = "Firstname" + std::to_string(i);
+        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
+        p.name.last = "Lastname" + std::to_string(i);
+        p.age = (i % 80);
+        p.salary = (i % 5) * 12345.67;
+        p.married = (i % 2) == 0;
+
+        batch.push_back(p);
+    }
+    db.write(batch);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    while (state.KeepRunning())
+    {
+        state.PauseTiming();
+        std::uniform_int_distribution<> distrib(0, 99);
+        std::uint32_t idx = static_cast<std::uint32_t>(distrib(gen));
+        state.ResumeTiming();
+
+        // read 100 records at a random idx
+        auto b = db.read(idx, 100);
+
+        state.PauseTiming();
+        b.clear(); // do something to avoid unused var warning
+        state.ResumeTiming();
+    }
+}
+BENCHMARK(BatchReadMultipleFiles);
 
 BENCHMARK_MAIN();

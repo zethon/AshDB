@@ -4,6 +4,7 @@
 #include <sstream>
 #include <atomic>
 #include <optional>
+#include <vector>
 
 #include <boost/filesystem.hpp>
 
@@ -14,7 +15,7 @@
 namespace ashdb
 {
 
-using IndexRecord = std::vector<std::vector<std::size_t>>;
+using SegmentIndices = std::vector<std::vector<std::size_t>>;
 
 constexpr auto INDEX_EXTENSION = "idx";
 constexpr auto VALIDCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvqxyz0123456789-_";
@@ -29,24 +30,11 @@ std::vector<std::size_t> ReadIndexFile(const std::string& filename);
 template<class ThingT>
 class AshDB
 {
-    const std::string       _dbfolder;
-    const Options           _options;
-
-    IndexRecord             _indexRecord;
-
-    // the first and last accessors of the records using `at()` or `operator[]`
-    std::optional<std::size_t>  _startIndex = 0;
-    std::optional<std::size_t>  _lastIndex = 0;
-
-    // the current first and last file numbers
-    std::uint16_t           _startRecordNumber = 0;
-    std::uint16_t           _activeRecordNumber = 0;
-
-    std::mutex              _readWriteMutex;
-
-    std::atomic_bool        _open = false;
 
 public:
+    using Batch = std::vector<ThingT>;
+    using BatchIterator = typename std::vector<ThingT>::const_iterator;
+    using IndexDetails = std::tuple<std::size_t, std::size_t>;
 
     AshDB(const std::string& folder, const Options& options)
         : _dbfolder{ folder },
@@ -59,8 +47,17 @@ public:
     [[maybe_unused]] OpenStatus open();
     void close();
 
+    [[maybe_unused]]
     WriteStatus write(const ThingT& thing);
-    [[maybe_unused]] ThingT read(std::size_t index);
+
+    [[maybe_unused]]
+    WriteStatus write(const Batch& batch);
+
+    [[maybe_unused]]
+    ThingT read(std::size_t index);
+
+    [[nodiscard]]
+    Batch read(std::size_t index, std::size_t count);
 
     // returns the accessor boundaries ot the database, for example
     // if we use "db->at(i)", these functions tell us the range of "i"
@@ -77,26 +74,26 @@ public:
 
     // data files have names like "data-0001.dat", the numbers returned
     // by these methods represent the "0001" portion of the filename
-    std::uint16_t startRecordNumber() const { return _startRecordNumber; }
-    std::uint16_t activeRecordNumber() const { return _activeRecordNumber; }
+    std::uint16_t startSegmentNumber() const { return _startSegmentNumber; }
+    std::uint16_t activeSegmentNumber() const { return _activeSegmentNumber; }
 
-    // returns the full path of the file to which the next record will
+    // returns the full path of the file tobench which the next record will
     // be written
     std::string activeDataFile() const
     {
-        return buildDataFilename(_activeRecordNumber);
+        return buildDataFilename(_activeSegmentNumber);
     }
 
     // returns the full path of the file to which the next index entry
     // will be written
     std::string activeIndexFile() const
     {
-        return buildIndexFilename(_activeRecordNumber);
+        return buildIndexFilename(_activeSegmentNumber);
     }
 
     // records the vector of vector that keeps track of all the records
     // and their offsets
-    const IndexRecord indexRecord() const { return _indexRecord; }
+    const SegmentIndices segmentIndices() const { return _segmentIndices; }
 
 private:
     // scans the database folder to establish the min and max records for
@@ -108,21 +105,45 @@ private:
     // find the boundaries of the accessor methods, i.e. we access
     // the records in the database through `at(i)` and this will
     // find the valid range of values of `i`. NOTE: This should
-    // be called AFTER `_indexRecord` has been setup
+    // be called AFTER `_segmentIndices` has been setup
     void findIndexBoundaries();
 
+    // move the index forward by (1) incrementing the active record number,
+    // (2) deleting the oldest index and data files if necessary and (3)
+    // cleaning up `_startIndex` and `_lastIndex` as needed
+    void updateIndexing();
+
+    // writes the given offset to the current index file and will update
+    // "_segmentIndices" accordingly
     bool writeIndexEntry(std::size_t offset);
 
-    std::string buildDataFilename(std::uint16_t x) const
-    {
-        return ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, x);
-    }
+    // writes records to the current data file until the begin == end or
+    // until the dat file exceeds the max file size
+    WriteStatus writeBatchUntilFull(BatchIterator& begin, BatchIterator end);
 
-    std::string buildIndexFilename(std::uint16_t x) const
-    {
-        const auto temp = _options.extension + INDEX_EXTENSION;
-        return ashdb::BuildFilename(_dbfolder, _options.prefix, temp, x);
-    }
+    std::string buildDataFilename(std::uint16_t x) const;
+    std::string buildIndexFilename(std::uint16_t x) const;
+
+    IndexDetails findIndexDetails(std::size_t index);
+
+    //////////////////////////////////////////////
+    // private variables
+    const std::string       _dbfolder;
+    const Options           _options;
+
+    SegmentIndices             _segmentIndices;
+
+    // the first and last accessors of the records using `at()` or `operator[]`
+    std::optional<std::size_t>  _startIndex = 0;
+    std::optional<std::size_t>  _lastIndex = 0;
+
+    // the current first and last file numbers
+    std::uint16_t           _startSegmentNumber = 0;
+    std::uint16_t           _activeSegmentNumber = 0;
+
+    std::mutex              _readWriteMutex;
+
+    std::atomic_bool        _open = false;
 };
 
 template<class ThingT>
@@ -167,14 +188,14 @@ OpenStatus AshDB<ThingT>::open()
     findFileBoundaries();
 
     // load the record-index
-    _indexRecord.clear();
-    for (auto i = _startRecordNumber; i <= _activeRecordNumber; ++i)
+    _segmentIndices.clear();
+    for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
     {
         const auto indexFilename = buildIndexFilename(i);
         if (boost::filesystem::exists(indexFilename))
         {
-            _indexRecord.push_back({});
-            _indexRecord.back() = ashdb::ReadIndexFile(indexFilename);
+            _segmentIndices.push_back({});
+            _segmentIndices.back() = ashdb::ReadIndexFile(indexFilename);
         }
     }
 
@@ -206,20 +227,9 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     auto destfilesize = boost::filesystem::exists(datafile)
             ? boost::filesystem::file_size(datafile.data()) : 0u;
 
-    // let's ashdb_write the index before we ashdb_write the data
-    if (destfilesize == 0)
-    {
-        auto value = 0;
-        if (_indexRecord.size() > 0)
-        {
-            value = _indexRecord.back().at(0) + _indexRecord.back().size();
-        }
-        writeIndexEntry(value);
-    }
-    else
-    {
-        writeIndexEntry(destfilesize);
-    }
+    // write the offset of the current filesize, since this marks the beginning
+    // of *this* record
+    writeIndexEntry(destfilesize);
 
     std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
     ashdb_write(ofs, thing);
@@ -227,86 +237,155 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
 
     // now that we've written the data, check the filesize once again
     destfilesize = boost::filesystem::file_size(datafile.data());
+    updateIndexing();
     if (_options.filesize_max > 0 && destfilesize >= _options.filesize_max)
     {
-        _activeRecordNumber++;
+        _activeSegmentNumber++;
     }
-
-    if (_options.database_max > 0
-        && databaseSize() > _options.database_max)
-    {
-        const auto fn = buildDataFilename(_startRecordNumber);
-        const auto ifn = buildIndexFilename(_startRecordNumber);
-        boost::filesystem::remove(fn);
-        boost::filesystem::remove(ifn);
-
-        _startRecordNumber++;
-        _indexRecord.erase(_indexRecord.begin());
-    }
-
-    // we should be able to assume that `_indexRecord` has some values now
-    // TODO: this can probably be refactored such that each item is updated
-    //       with the `+` operator individually, which might be faster than
-    //       what we're doing here, but this will do for now
-    _startIndex = _indexRecord.front().at(0);
-    _lastIndex = _indexRecord.back().front() + (_indexRecord.back().size() - 1);
 
     return WriteStatus::OK;
+}
+
+template<class ThingT>
+WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
+{
+    const auto datafile = this->activeDataFile();
+
+    std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+
+    while (begin != end)
+    {
+        writeIndexEntry(ofs.tellp());
+        ashdb_write(ofs, *begin);
+        ++begin;
+
+        if (!_startIndex.has_value())
+        {
+            assert(!_lastIndex.has_value());
+            _startIndex = 0;
+            _lastIndex = 0;
+        }
+        else
+        {
+            (*_lastIndex)++;
+        }
+
+        if (_options.filesize_max > 0
+            &&  ofs.tellp() >= _options.filesize_max)
+        {
+            ofs.close();
+            _activeSegmentNumber++;
+            return ashdb::WriteStatus::OK;
+        }
+    }
+
+    return {};
+}
+
+template<class ThingT>
+WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
+{
+    std::scoped_lock lock{_readWriteMutex};
+    if (!_open)
+    {
+        return WriteStatus::NOT_OPEN;
+    }
+
+    BatchIterator begin = batch.begin();
+    BatchIterator end = batch.end();
+
+    while (begin != end)
+    {
+        auto status = writeBatchUntilFull(begin, end);
+        if (status != ashdb::WriteStatus::OK)
+        {
+            return status;
+        }
+
+        // now see if the database is too big and we need to trim it down
+        if (_options.database_max > 0
+            && databaseSize() > _options.database_max)
+        {
+            const auto fn = buildDataFilename(_startSegmentNumber);
+            const auto ifn = buildIndexFilename(_startSegmentNumber);
+            boost::filesystem::remove(fn);
+            boost::filesystem::remove(ifn);
+
+            _startSegmentNumber++;
+            _segmentIndices.erase(_segmentIndices.begin());
+            _startIndex = _segmentIndices.front().at(0);
+        }
+    }
+
+    return ashdb::WriteStatus::OK;
 }
 
 template<class ThingT>
 ThingT AshDB<ThingT>::read(std::size_t index)
 {
     std::scoped_lock lock{_readWriteMutex};
-    if (index < _startIndex || index > _lastIndex)
+
+    auto [currentRecord, localIndex] = findIndexDetails(index);
+    auto readOffset = localIndex == 0 ? 0 : _segmentIndices[currentRecord][localIndex];
+
+    const auto dataFile = buildDataFilename(currentRecord);
+    std::ifstream ifs(dataFile.data(), std::ios_base::binary);
+    if (!ifs.is_open())
     {
         std::stringstream ss;
-        ss << "index " << index << " is out of bounds";
+        ss << "file '" << dataFile << "' is not open";
         throw std::runtime_error(ss.str());
     }
 
-    // TODO: this is awful and needs to be refactored, but I just want to get
-    // the unit tests in place, so it will do for now
-    std::optional<std::size_t> readOffset;
-    auto currentRecord = _startRecordNumber;
-    for (const auto& offsets : _indexRecord)
-    {
-        if (index < (offsets.front() + offsets.size()))
-        {
-            auto localIndex = index - offsets.front();
-            if (localIndex == 0)
-            {
-                // the first offset of the record-index tells us the index number
-                // of the first item in that index file and not the offset, we can
-                // safely assume the offset of the first item in a data file is always 0
-                readOffset = 0;
-            }
-            else
-            {
-                readOffset = offsets.at(localIndex);
-            }
-            break;
-        }
-        else
-        {
-            currentRecord++;
-        }
-    }
+    ifs.seekg(readOffset);
 
-    if (readOffset.has_value())
+    ThingT thing;
+    ashdb_read(ifs, thing);
+    return thing;
+}
+
+template<class ThingT>
+auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>::Batch
+{
+    std::scoped_lock lock{_readWriteMutex};
+
+    AshDB<ThingT>::Batch batch;
+    const auto endIndex = index + count;
+    auto [segment, offsetIndex] = findIndexDetails(index);
+
+    for (auto i = index; i < (index + count);)
     {
-        const auto dataFile = buildDataFilename(currentRecord);
-        if (std::ifstream ifs(dataFile.data(), std::ios_base::binary); ifs.is_open())
+        const auto datafile = this->buildDataFilename(segment);
+        std::ifstream ifs(datafile.data(), std::ios_base::binary);
+        if (!ifs.is_open())
         {
-            ifs.seekg(*readOffset);
+            std::stringstream ss;
+            ss << "could not open file '" << datafile << "'";
+            throw std::runtime_error(ss.str());
+        }
+
+        auto localMax = _segmentIndices[segment].size();
+        if (endIndex <= (_segmentIndices[segment][0] + _segmentIndices[segment].size()))
+        {
+            localMax = endIndex - _segmentIndices[segment][0];
+        }
+
+        for (; offsetIndex < localMax; ++i, ++offsetIndex)
+        {
+            auto readOffset = offsetIndex == 0 ? 0 : _segmentIndices[segment][offsetIndex];
+            ifs.seekg(readOffset);
 
             ThingT thing;
             ashdb_read(ifs, thing);
-            return thing;
+            batch.push_back(std::move(thing));
         }
+
+        ifs.close();
+        offsetIndex = 0;
+        segment++;
     }
 
-    return {};
+    return batch;
 }
 
 template<class ThingT>
@@ -345,15 +424,15 @@ void AshDB<ThingT>::findFileBoundaries()
         }
     }
 
-    _startRecordNumber = start;
-    _activeRecordNumber = std::max(_startRecordNumber, end);
+    _startSegmentNumber = start;
+    _activeSegmentNumber = std::max(_startSegmentNumber, end);
 
     if (const auto datafile = activeDataFile();
         _options.filesize_max != 0
         && boost::filesystem::exists(datafile.data())
         && boost::filesystem::file_size(datafile.data()) >= _options.filesize_max)
     {
-        _activeRecordNumber++;
+        _activeSegmentNumber++;
     }
 }
 
@@ -364,19 +443,58 @@ void AshDB<ThingT>::findIndexBoundaries()
     _lastIndex.reset();
 
     // load the accessor boundaries
-    if (_indexRecord.size() > 0)
+    if (_segmentIndices.size() > 0)
     {
-        assert(_indexRecord.front().size() > 0);
-        _startIndex = _indexRecord.front().at(0);
+        assert(_segmentIndices.front().size() > 0);
+        _startIndex = _segmentIndices.front().at(0);
 
-        assert(_indexRecord.back().size() > 0);
-        _lastIndex = _indexRecord.back().front() + (_indexRecord.back().size() - 1);
+        assert(_segmentIndices.back().size() > 0);
+        _lastIndex = _segmentIndices.back().front() + (_segmentIndices.back().size() - 1);
+    }
+}
+
+template<class ThingT>
+void AshDB<ThingT>::updateIndexing()
+{
+    if (!_startIndex.has_value())
+    {
+        assert(!_lastIndex.has_value());
+        _startIndex = 0;
+        _lastIndex = 0;
+    }
+    else
+    {
+        (*_lastIndex)++;
+    }
+
+    // now see if the database is too big and we need to trim it down
+    if (_options.database_max > 0
+        && databaseSize() > _options.database_max)
+    {
+        const auto fn = buildDataFilename(_startSegmentNumber);
+        const auto ifn = buildIndexFilename(_startSegmentNumber);
+        boost::filesystem::remove(fn);
+        boost::filesystem::remove(ifn);
+
+        _startSegmentNumber++;
+        _segmentIndices.erase(_segmentIndices.begin());
+        _startIndex = _segmentIndices.front().at(0);
     }
 }
 
 template<class ThingT>
 bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
 {
+    auto value = offset;
+
+    if (value == 0)
+    {
+        if (_segmentIndices.size() > 0)
+        {
+            value = _segmentIndices.back().at(0) + _segmentIndices.back().size();
+        }
+    }
+
     std::string temp = activeIndexFile();
     std::ofstream ofs(temp.data(), std::ios::out | std::ios::binary | std::ios::app);
     if (!ofs.is_open())
@@ -384,17 +502,17 @@ bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
         return false;
     }
 
-    ashdb::ashdb_write(ofs, offset);
+    ashdb::ashdb_write(ofs, value);
     ofs.close();
 
-    const auto recordCount = ((_activeRecordNumber - _startRecordNumber) + 1);
-    if (_indexRecord.size() < recordCount)
+    const auto recordCount = ((_activeSegmentNumber - _startSegmentNumber) + 1);
+    if (_segmentIndices.size() < recordCount)
     {
-        assert(_indexRecord.size() == recordCount - 1);
-        _indexRecord.push_back({});
+        assert(_segmentIndices.size() == recordCount - 1);
+        _segmentIndices.push_back({});
     }
 
-    _indexRecord.back().push_back(offset);
+    _segmentIndices.back().push_back(value);
 
     return true;
 }
@@ -403,7 +521,7 @@ template<class ThingT>
 std::uint64_t AshDB<ThingT>::databaseSize() const
 {
     std::uint64_t retval = 0;
-    for (auto i = _startRecordNumber; i <= _activeRecordNumber; ++i)
+    for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
     {
         const auto filename = ashdb::BuildFilename(
                 _dbfolder, _options.prefix, _options.extension, i);
@@ -412,7 +530,7 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
 
         if (!boost::filesystem::exists(filepath))
         {
-            assert(i == _activeRecordNumber);
+            assert(i == _activeSegmentNumber);
             break;
         }
 
@@ -431,6 +549,55 @@ std::size_t AshDB<ThingT>::size() const
     }
 
     return (*_lastIndex - *_startIndex) + 1;
+}
+
+// TODO: this could be improved
+template<class ThingT>
+typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t index)
+{
+    if (index < _startIndex || index > _lastIndex)
+    {
+        std::stringstream ss;
+        ss << "index " << index << " is out of bounds";
+        throw std::runtime_error(ss.str());
+    }
+
+    std::optional<std::size_t> localIndex = 0;
+    std::size_t currentRecord = _startSegmentNumber;
+    for (const auto& offsets : _segmentIndices)
+    {
+        if (index < (offsets.front() + offsets.size()))
+        {
+            localIndex = index - offsets.front();
+            break;
+        }
+        else
+        {
+            currentRecord++;
+        }
+    }
+
+    if (!localIndex.has_value())
+    {
+        std::stringstream ss;
+        ss << "index " << index << " could not be found";
+        throw std::runtime_error(ss.str());
+    }
+
+    return IndexDetails{ currentRecord, *localIndex };
+}
+
+template<class ThingT>
+std::string AshDB<ThingT>::buildDataFilename(std::uint16_t x) const
+{
+    return ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, x);
+}
+
+template<class ThingT>
+std::string AshDB<ThingT>::buildIndexFilename(std::uint16_t x) const
+{
+    const auto temp = _options.extension + INDEX_EXTENSION;
+    return ashdb::BuildFilename(_dbfolder, _options.prefix, temp, x);
 }
 
 }; // namespace ashdb
