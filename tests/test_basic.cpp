@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "Test.h"
 
@@ -10,7 +11,6 @@ namespace data = boost::unit_test::data;
 
 using StringDB = ashdb::AshDB<std::string>;
 
-static const char* piStr = "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491298336733624406566430860213949463952247371907021798609437027705392171762931767523846748184676694051320005681271452635608277857713427577896091736371787214684409012249534301465495853710507922796892589235420199561121290219608640344181598136297747713099605187072113499999983729780499510597317328160963185950244594553469083026425223082533446850352619311881710100031378387528865875332083814206171776691473035982534904287554687311595628638823537875937519577818577805321712268066130019278766111959092164201989";
 
 BOOST_AUTO_TEST_SUITE(basic)
 
@@ -54,14 +54,14 @@ BOOST_AUTO_TEST_CASE(db_open)
     options.error_if_exists = false;
     ashdb::AshDB<std::string> db{tempFolder.string(), options};
     BOOST_TEST(db.open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db.startRecordNumber() == 0);
-    BOOST_TEST(db.activeRecordNumber() == 0);
+    BOOST_TEST(db.startSegmentNumber() == 0);
+    BOOST_TEST(db.activeSegmentNumber() == 0);
 
     options.error_if_exists = true;
     ashdb::AshDB<std::string> db2{tempFolder.string(), options};
     BOOST_TEST(db2.open() == ashdb::OpenStatus::EXISTS);
-    BOOST_TEST(db2.startRecordNumber() == 0);
-    BOOST_TEST(db2.activeRecordNumber() == 0);
+    BOOST_TEST(db2.startSegmentNumber() == 0);
+    BOOST_TEST(db2.activeSegmentNumber() == 0);
 }
 
 BOOST_AUTO_TEST_CASE(db_open_failed)
@@ -112,24 +112,24 @@ BOOST_AUTO_TEST_CASE(db_write1)
     BOOST_TEST(!db->lastIndex().has_value());
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
-    BOOST_TEST(db->startRecordNumber() == 0);
-    BOOST_TEST(db->activeRecordNumber() == 1);
-    BOOST_TEST(db->indexRecord().size() == 1);
-    BOOST_TEST(db->indexRecord().at(0).size() == 1);
+    BOOST_TEST(db->startSegmentNumber() == 0);
+    BOOST_TEST(db->activeSegmentNumber() == 1);
+    BOOST_TEST(db->segmentIndices().size() == 1);
+    BOOST_TEST(db->segmentIndices().at(0).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 0));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
-    BOOST_TEST(db->activeRecordNumber() == 2);
-    BOOST_TEST(db->indexRecord().size() == 2);
-    BOOST_TEST(db->indexRecord().at(1).size() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 2);
+    BOOST_TEST(db->segmentIndices().size() == 2);
+    BOOST_TEST(db->segmentIndices().at(1).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 1));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK);
-    BOOST_TEST(db->activeRecordNumber() == 3);
-    BOOST_TEST(db->indexRecord().size() == 3);
-    BOOST_TEST(db->indexRecord().at(2).size() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 3);
+    BOOST_TEST(db->segmentIndices().size() == 3);
+    BOOST_TEST(db->segmentIndices().at(2).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 2));
 
@@ -138,12 +138,12 @@ BOOST_AUTO_TEST_CASE(db_write1)
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
 
-    BOOST_TEST(db->activeRecordNumber() == 3);
-    BOOST_TEST(db->indexRecord().size() == 3);
-    BOOST_TEST(db->indexRecord().at(0).size() == 1);
-    BOOST_TEST(db->indexRecord().at(1).size() == 1);
-    BOOST_TEST(db->indexRecord().at(2).size() == 1);
-    BOOST_TEST(db->startRecordNumber() == 0);
+    BOOST_TEST(db->activeSegmentNumber() == 3);
+    BOOST_TEST(db->segmentIndices().size() == 3);
+    BOOST_TEST(db->segmentIndices().at(0).size() == 1);
+    BOOST_TEST(db->segmentIndices().at(1).size() == 1);
+    BOOST_TEST(db->segmentIndices().at(2).size() == 1);
+    BOOST_TEST(db->startSegmentNumber() == 0);
     BOOST_TEST(db->startIndex().has_value());
     BOOST_TEST(*(db->startIndex()) == 0);
     BOOST_TEST(db->lastIndex().has_value());
@@ -164,38 +164,38 @@ BOOST_AUTO_TEST_CASE(db_write2)
     BOOST_TEST(!db->lastIndex().has_value());
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // writes in 0
-    BOOST_TEST(db->startRecordNumber() == 0);
-    BOOST_TEST(db->activeRecordNumber() == 0);
-    BOOST_TEST(db->indexRecord().size() == 1);
-    BOOST_TEST(db->indexRecord().at(0).size() == 1);
+    BOOST_TEST(db->startSegmentNumber() == 0);
+    BOOST_TEST(db->activeSegmentNumber() == 0);
+    BOOST_TEST(db->segmentIndices().size() == 1);
+    BOOST_TEST(db->segmentIndices().at(0).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 0));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 0
-    BOOST_TEST(db->activeRecordNumber() == 1);
-    BOOST_TEST(db->indexRecord().size() == 1);
-    BOOST_TEST(db->indexRecord().at(0).size() == 2);
+    BOOST_TEST(db->activeSegmentNumber() == 1);
+    BOOST_TEST(db->segmentIndices().size() == 1);
+    BOOST_TEST(db->segmentIndices().at(0).size() == 2);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 1));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 1
-    BOOST_TEST(db->activeRecordNumber() == 1);
-    BOOST_TEST(db->indexRecord().size() == 2);
-    BOOST_TEST(db->indexRecord().at(1).size() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 1);
+    BOOST_TEST(db->segmentIndices().size() == 2);
+    BOOST_TEST(db->segmentIndices().at(1).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 2));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 1
-    BOOST_TEST(db->activeRecordNumber() == 2);
-    BOOST_TEST(db->indexRecord().size() == 2);
-    BOOST_TEST(db->indexRecord().at(1).size() == 2);
+    BOOST_TEST(db->activeSegmentNumber() == 2);
+    BOOST_TEST(db->segmentIndices().size() == 2);
+    BOOST_TEST(db->segmentIndices().at(1).size() == 2);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 3));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 2
-    BOOST_TEST(db->activeRecordNumber() == 2);
-    BOOST_TEST(db->indexRecord().size() == 3);
-    BOOST_TEST(db->indexRecord().at(2).size() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 2);
+    BOOST_TEST(db->segmentIndices().size() == 3);
+    BOOST_TEST(db->segmentIndices().at(2).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 4));
 
@@ -203,11 +203,11 @@ BOOST_AUTO_TEST_CASE(db_write2)
 
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db->activeRecordNumber() == 2);
-    BOOST_TEST(db->indexRecord().size() == 3);
-    BOOST_TEST(db->indexRecord().at(0).size() == 2);
-    BOOST_TEST(db->indexRecord().at(1).size() == 2);
-    BOOST_TEST(db->indexRecord().at(2).size() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 2);
+    BOOST_TEST(db->segmentIndices().size() == 3);
+    BOOST_TEST(db->segmentIndices().at(0).size() == 2);
+    BOOST_TEST(db->segmentIndices().at(1).size() == 2);
+    BOOST_TEST(db->segmentIndices().at(2).size() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 4));
 }
@@ -223,29 +223,29 @@ BOOST_AUTO_TEST_CASE(db_write3)
 
     auto db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db->activeRecordNumber() == 0);
+    BOOST_TEST(db->activeSegmentNumber() == 0);
     BOOST_TEST(!db->startIndex().has_value());
     BOOST_TEST(!db->lastIndex().has_value());
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 0
-    BOOST_TEST(db->activeRecordNumber() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 1);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 0));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 1
-    BOOST_TEST(db->activeRecordNumber() == 2);
+    BOOST_TEST(db->activeSegmentNumber() == 2);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 1));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 2
-    BOOST_TEST(db->activeRecordNumber() == 3);
+    BOOST_TEST(db->activeSegmentNumber() == 3);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 0));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 2));
 
     // db is too big, so delete the first file
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 3
-    BOOST_TEST(db->startRecordNumber() == 1);
-    BOOST_TEST(db->activeRecordNumber() == 4);
+    BOOST_TEST(db->startSegmentNumber() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 4);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 1));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 3));
 
@@ -253,14 +253,14 @@ BOOST_AUTO_TEST_CASE(db_write3)
 
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db->startRecordNumber() == 1);
-    BOOST_TEST(db->activeRecordNumber() == 4);
+    BOOST_TEST(db->startSegmentNumber() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 4);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 1));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 3));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 4
-    BOOST_TEST(db->startRecordNumber() == 2);
-    BOOST_TEST(db->activeRecordNumber() == 5);
+    BOOST_TEST(db->startSegmentNumber() == 2);
+    BOOST_TEST(db->activeSegmentNumber() == 5);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 2));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 4));
 
@@ -268,14 +268,14 @@ BOOST_AUTO_TEST_CASE(db_write3)
 
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db->startRecordNumber() == 2);
-    BOOST_TEST(db->activeRecordNumber() == 5);
+    BOOST_TEST(db->startSegmentNumber() == 2);
+    BOOST_TEST(db->activeSegmentNumber() == 5);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 2));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 4));
 
     BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::OK); // 4
-    BOOST_TEST(db->activeRecordNumber() == 6);
-    BOOST_TEST(db->startRecordNumber() == 3);
+    BOOST_TEST(db->activeSegmentNumber() == 6);
+    BOOST_TEST(db->startSegmentNumber() == 3);
     BOOST_TEST((db->startIndex().has_value() && *(db->startIndex()) == 3));
     BOOST_TEST((db->lastIndex().has_value() && *(db->lastIndex()) == 5));
 }
@@ -399,6 +399,40 @@ BOOST_AUTO_TEST_CASE(db_read4)
 
     db = std::make_unique<StringDB>(tempFolder, options);
     BOOST_TEST(db->size() == 0);
+}
+
+BOOST_AUTO_TEST_CASE(delete_files)
+{
+    auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
+
+    ashdb::Options options;
+    options.filesize_max = 100;
+    options.database_max = 300;
+
+    auto db = std::make_unique<StringDB>(tempFolder, options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+
+    StringDB::Batch batch;
+    for (auto x = 0u; x < 3; ++x)
+    {
+        char c = std::to_string(x).at(0);
+        std::string str(110, c);
+        batch.push_back(str);
+    }
+
+    BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->write("A") == ashdb::WriteStatus::OK);
+
+    // `size()` represents the number of available records in the database
+    BOOST_TEST(db->size() == 3);
+
+    // remove the last file
+    const auto datafile = db->activeDataFile();
+    BOOST_TEST(boost::ends_with(datafile, "3.ash"));
+    boost::filesystem::remove(datafile);
+
+    // and now try to get a record in the file we just deleted
+    BOOST_CHECK_THROW(auto t = db->read(3), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END() 

@@ -14,8 +14,6 @@ namespace data = boost::unit_test::data;
 
 using StringDB = ashdb::AshDB<std::string>;
 
-constexpr auto e100Chars = "2.7182818284590452353602874713526624977572470936999595749669676277240766303535475945713821785251664274";
-
 BOOST_AUTO_TEST_SUITE(batch)
 
 BOOST_AUTO_TEST_CASE(batch_not_open)
@@ -132,11 +130,11 @@ BOOST_AUTO_TEST_CASE(batch_read1)
 
     BOOST_TEST(db->size() == 12);
 
-    const auto& indexRecord = db->indexRecord();
-    BOOST_TEST(indexRecord.size() == 3);
-    BOOST_TEST(indexRecord[0].size() == 4);
-    BOOST_TEST(indexRecord[1].size() == 4);
-    BOOST_TEST(indexRecord[2].size() == 4);
+    const auto& indexRecord = db->segmentIndices();
+    BOOST_TEST(segmentIndices.size() == 3);
+    BOOST_TEST(segmentIndices[0].size() == 4);
+    BOOST_TEST(segmentIndices[1].size() == 4);
+    BOOST_TEST(segmentIndices[2].size() == 4);
 
     StringDB::Batch batch1 = db->read(6, 4); // across segments
     BOOST_TEST(batch1.size() == 4);
@@ -257,8 +255,8 @@ BOOST_AUTO_TEST_CASE(batch_trim)
 
     BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
     BOOST_TEST(db->size() == 2);
-    BOOST_TEST(db->startRecordNumber() == 1);
-    BOOST_TEST(db->activeRecordNumber() == 3);
+    BOOST_TEST(db->startSegmentNumber() == 1);
+    BOOST_TEST(db->activeSegmentNumber() == 3);
 
     BOOST_CHECK_THROW(batch = db->read(0,10), std::runtime_error);
 }
