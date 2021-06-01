@@ -324,12 +324,6 @@ template<class ThingT>
 ThingT AshDB<ThingT>::read(std::size_t index)
 {
     std::scoped_lock lock{_readWriteMutex};
-    if (index < _startIndex || index > _lastIndex)
-    {
-        std::stringstream ss;
-        ss << "index " << index << " is out of bounds";
-        throw std::runtime_error(ss.str());
-    }
 
     auto [currentRecord, localIndex] = findIndexDetails(index);
     auto readOffset = localIndex == 0 ? 0 : _indexRecord[currentRecord][localIndex];
@@ -352,13 +346,6 @@ template<class ThingT>
 auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>::Batch
 {
     std::scoped_lock lock{_readWriteMutex};
-
-    if (index < _startIndex || index > _lastIndex)
-    {
-        std::stringstream ss;
-        ss << "index " << index << " is out of bounds";
-        throw std::runtime_error(ss.str());
-    }
 
     AshDB<ThingT>::Batch batch;
     const auto endIndex = index + count;
