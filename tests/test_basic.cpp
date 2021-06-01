@@ -64,6 +64,27 @@ BOOST_AUTO_TEST_CASE(db_open)
     BOOST_TEST(db2.activeSegmentNumber() == 0);
 }
 
+BOOST_AUTO_TEST_CASE(db_open_error)
+{
+    // boost's temp_directory_path() will create the folder it's returning
+    // so in this case we'll use a subfolder that we know doesn't exists
+    auto tempFolder = ashdb::test::tempFolder("db_open_error") / "new_db";
+
+    ashdb::Options options;
+    options.create_if_missing = false;
+
+    auto db = std::make_unique<StringDB>(tempFolder.string(), options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::NOT_FOUND);
+
+    options.create_if_missing = true;
+    db = std::make_unique<StringDB>(tempFolder.string(), options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+
+    options.error_if_exists = true;
+    db = std::make_unique<StringDB>(tempFolder.string(), options);
+    BOOST_TEST(db->open() == ashdb::OpenStatus::EXISTS);
+}
+
 BOOST_AUTO_TEST_CASE(db_open_failed)
 {
     auto tempFolder = (ashdb::test::tempFolder("db_open_failed")).string();

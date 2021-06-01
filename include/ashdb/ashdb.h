@@ -115,7 +115,7 @@ private:
 
     // writes the given offset to the current index file and will update
     // "_segmentIndices" accordingly
-    bool writeIndexEntry(std::size_t offset);
+    void writeIndexEntry(std::size_t offset);
 
     // writes records to the current data file until the begin == end or
     // until the dat file exceeds the max file size
@@ -483,7 +483,7 @@ void AshDB<ThingT>::updateIndexing()
 }
 
 template<class ThingT>
-bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
+void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
 {
     auto value = offset;
 
@@ -496,10 +496,12 @@ bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     }
 
     std::string temp = activeIndexFile();
-    std::ofstream ofs(temp.data(), std::ios::out | std::ios::binary | std::ios::app);
+    std::ofstream ofs(temp.c_str(), std::ios::out | std::ios::binary | std::ios::app);
     if (!ofs.is_open())
     {
-        return false;
+        std::stringstream ss;
+        ss << "could not open index file '" << temp << "'";
+        throw std::runtime_error(ss.str());
     }
 
     ashdb::ashdb_write(ofs, value);
@@ -513,8 +515,6 @@ bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     }
 
     _segmentIndices.back().push_back(value);
-
-    return true;
 }
 
 template<class ThingT>
