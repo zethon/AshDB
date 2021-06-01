@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE(batch_read1)
 
     BOOST_TEST(db->size() == 12);
 
-    const auto& indexRecord = db->segmentIndices();
+    const auto& segmentIndices = db->segmentIndices();
     BOOST_TEST(segmentIndices.size() == 3);
     BOOST_TEST(segmentIndices[0].size() == 4);
     BOOST_TEST(segmentIndices[1].size() == 4);
