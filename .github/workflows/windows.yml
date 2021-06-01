@@ -57,5 +57,5 @@ jobs:
     - name: Tests
       working-directory: ${{github.workspace}}/build
       shell: bash
-      run: ctest -VV --rerun-failed --output-on-failure -C $BUILD_TYPE
+      run: ctest -VV -C $BUILD_TYPE
 
