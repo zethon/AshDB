@@ -34,6 +34,7 @@ class AshDB
 public:
     using Batch = std::vector<ThingT>;
     using BatchIterator = typename std::vector<ThingT>::const_iterator;
+    using IndexDetails = std::tuple<std::size_t, std::size_t>;
 
     AshDB(const std::string& folder, const Options& options)
         : _dbfolder{ folder },
@@ -112,56 +113,18 @@ private:
     // cleaning up `_startIndex` and `_lastIndex` as needed
     void updateIndexing();
 
+    // writes the given offset to the current index file and will update
+    // "_indexRecord" accordingly
     bool writeIndexEntry(std::size_t offset);
 
+    // writes records to the current data file until the begin == end or
+    // until the dat file exceeds the max file size
     WriteStatus writeBatchUntilFull(BatchIterator& begin, BatchIterator end);
 
-    std::string buildDataFilename(std::uint16_t x) const
-    {
-        return ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, x);
-    }
+    std::string buildDataFilename(std::uint16_t x) const;
+    std::string buildIndexFilename(std::uint16_t x) const;
 
-    std::string buildIndexFilename(std::uint16_t x) const
-    {
-        const auto temp = _options.extension + INDEX_EXTENSION;
-        return ashdb::BuildFilename(_dbfolder, _options.prefix, temp, x);
-    }
-
-    // TODO: this could be improved
-    using IndexDetails = std::tuple<std::size_t, std::size_t>;
-    IndexDetails findIndexDetails(std::size_t index)
-    {
-        if (index < _startIndex || index > _lastIndex)
-        {
-            std::stringstream ss;
-            ss << "index " << index << " is out of bounds";
-            throw std::runtime_error(ss.str());
-        }
-
-        std::optional<std::size_t> localIndex = 0;
-        std::size_t currentRecord = 0;
-        for (const auto& offsets : _indexRecord)
-        {
-            if (index < (offsets.front() + offsets.size()))
-            {
-                localIndex = index - offsets.front();
-                break;
-            }
-            else
-            {
-                currentRecord++;
-            }
-        }
-
-        if (!localIndex.has_value())
-        {
-            std::stringstream ss;
-            ss << "index " << index << " could not be found";
-            throw std::runtime_error(ss.str());
-        }
-
-        return IndexDetails{ currentRecord, *localIndex };
-    }
+    IndexDetails findIndexDetails(std::size_t index);
 
     //////////////////////////////////////////////
     // private variables
@@ -296,10 +259,19 @@ WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterat
         ashdb_write(ofs, *begin);
         ++begin;
 
-        const auto openFilesize = ofs.tellp();
+        if (!_startIndex.has_value())
+        {
+            assert(!_lastIndex.has_value());
+            _startIndex = 0;
+            _lastIndex = 0;
+        }
+        else
+        {
+            (*_lastIndex)++;
+        }
 
         if (_options.filesize_max > 0
-            && openFilesize >= _options.filesize_max)
+            &&  ofs.tellp() >= _options.filesize_max)
         {
             ofs.close();
             _activeRecordNumber++;
@@ -330,7 +302,19 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
             return status;
         }
 
-        updateIndexing();
+        // now see if the database is too big and we need to trim it down
+        if (_options.database_max > 0
+            && databaseSize() > _options.database_max)
+        {
+            const auto fn = buildDataFilename(_startRecordNumber);
+            const auto ifn = buildIndexFilename(_startRecordNumber);
+            boost::filesystem::remove(fn);
+            boost::filesystem::remove(ifn);
+
+            _startRecordNumber++;
+            _indexRecord.erase(_indexRecord.begin());
+            _startIndex = _indexRecord.front().at(0);
+        }
     }
 
     return ashdb::WriteStatus::OK;
@@ -576,6 +560,55 @@ std::size_t AshDB<ThingT>::size() const
     }
 
     return (*_lastIndex - *_startIndex) + 1;
+}
+
+// TODO: this could be improved
+template<class ThingT>
+typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t index)
+{
+    if (index < _startIndex || index > _lastIndex)
+    {
+        std::stringstream ss;
+        ss << "index " << index << " is out of bounds";
+        throw std::runtime_error(ss.str());
+    }
+
+    std::optional<std::size_t> localIndex = 0;
+    std::size_t currentRecord = 0;
+    for (const auto& offsets : _indexRecord)
+    {
+        if (index < (offsets.front() + offsets.size()))
+        {
+            localIndex = index - offsets.front();
+            break;
+        }
+        else
+        {
+            currentRecord++;
+        }
+    }
+
+    if (!localIndex.has_value())
+    {
+        std::stringstream ss;
+        ss << "index " << index << " could not be found";
+        throw std::runtime_error(ss.str());
+    }
+
+    return IndexDetails{ currentRecord, *localIndex };
+}
+
+template<class ThingT>
+std::string AshDB<ThingT>::buildDataFilename(std::uint16_t x) const
+{
+    return ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, x);
+}
+
+template<class ThingT>
+std::string AshDB<ThingT>::buildIndexFilename(std::uint16_t x) const
+{
+    const auto temp = _options.extension + INDEX_EXTENSION;
+    return ashdb::BuildFilename(_dbfolder, _options.prefix, temp, x);
 }
 
 }; // namespace ashdb

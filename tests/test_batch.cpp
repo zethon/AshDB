@@ -78,6 +78,10 @@ BOOST_AUTO_TEST_CASE(batch_write_multiple_files)
     }
 
     BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->startIndex().has_value());
+    BOOST_TEST(*(db->startIndex()) == 0);
+    BOOST_TEST(db->lastIndex().has_value());
+    BOOST_TEST(*(db->lastIndex()) == 99);
     BOOST_TEST(db->size() == 100);
     BOOST_TEST(db->startIndex().has_value());
     BOOST_TEST(*db->startIndex() == 0);
