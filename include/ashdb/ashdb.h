@@ -253,13 +253,6 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 
     std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
 
-    if (!ofs.is_open())
-    {
-        std::stringstream ss;
-        ss << "datafile '" << datafile << "' could not be opened";
-        throw std::runtime_error(ss.str());
-    }
-
     while (begin != end)
     {
         writeIndexEntry(ofs.tellp());
@@ -498,12 +491,6 @@ void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
 
     std::string temp = activeIndexFile();
     std::ofstream ofs(temp.c_str(), std::ios::out | std::ios::binary | std::ios::app);
-    if (!ofs.is_open())
-    {
-        std::stringstream ss;
-        ss << "could not open index file '" << temp << "'";
-        throw std::runtime_error(ss.str());
-    }
 
     ashdb::ashdb_write(ofs, value);
     ofs.close();
@@ -537,6 +524,7 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
 
         retval += static_cast<std::uint64_t>(boost::filesystem::file_size(filepath));
     }
+    
     return retval;
 }
 
