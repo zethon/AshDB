@@ -119,7 +119,7 @@ private:
 
     // writes records to the current data file until the begin == end or
     // until the dat file exceeds the max file size
-    WriteStatus writeBatchUntilFull(BatchIterator& begin, BatchIterator end);
+    void writeBatchUntilFull(BatchIterator& begin, BatchIterator end);
 
     std::string buildDataFilename(std::uint16_t x) const;
     std::string buildIndexFilename(std::uint16_t x) const;
@@ -247,11 +247,18 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
 }
 
 template<class ThingT>
-WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
+void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 {
     const auto datafile = this->activeDataFile();
 
     std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+
+    if (!ofs.is_open())
+    {
+        std::stringstream ss;
+        ss << "datafile '" << datafile << "' could not be opened";
+        throw std::runtime_error(ss.str());
+    }
 
     while (begin != end)
     {
@@ -275,11 +282,9 @@ WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterat
         {
             ofs.close();
             _activeSegmentNumber++;
-            return ashdb::WriteStatus::OK;
+            break;
         }
     }
-
-    return {};
 }
 
 template<class ThingT>
@@ -296,11 +301,7 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
 
     while (begin != end)
     {
-        auto status = writeBatchUntilFull(begin, end);
-        if (status != ashdb::WriteStatus::OK)
-        {
-            return status;
-        }
+        writeBatchUntilFull(begin, end);
 
         // now see if the database is too big and we need to trim it down
         if (_options.database_max > 0

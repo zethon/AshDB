@@ -273,4 +273,13 @@ BOOST_AUTO_TEST_CASE(batch_errors)
     BOOST_CHECK_THROW(auto status = db->read(10,100), std::runtime_error);
 }
 
+BOOST_AUTO_TEST_CASE(empty_batch_write)
+{
+    auto tempFolder = (ashdb::test::tempFolder("empty_batch_write")).string();
+
+    auto db = std::make_unique<StringDB>(tempFolder, ashdb::Options{});
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(db->write(StringDB::Batch{}) == ashdb::WriteStatus::OK);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
