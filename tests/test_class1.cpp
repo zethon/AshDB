@@ -12,8 +12,6 @@
 
 namespace data = boost::unit_test::data;
 
-using PersonDB = ashdb::AshDB<project::Person>;
-
 BOOST_AUTO_TEST_SUITE(class_tests)
 
 BOOST_AUTO_TEST_CASE(class_write1)

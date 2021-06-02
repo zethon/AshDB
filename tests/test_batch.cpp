@@ -33,19 +33,22 @@ BOOST_AUTO_TEST_CASE(batch_write_single_file)
 
     for (auto i = 0u; i < 100; ++i)
     {
-        project::Person p;
-        p.name.first = "Firstname" + std::to_string(i);
-        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
-        p.name.last = "Lastname" + std::to_string(i);
-        p.age = (i % 80);
-        p.salary = (i % 5) * 12345.67;
-        p.married = (i % 2) == 0;
-
+        project::Person p = project::Person::CreatePerson(i);
         batch.push_back(p);
     }
 
-    auto status = db->write(batch);
-    BOOST_TEST(status == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->startIndex().has_value());
+    BOOST_TEST(*(db->startIndex()) == 0);
+    BOOST_TEST(db->lastIndex().has_value());
+    BOOST_TEST(*(db->lastIndex()) == 99);
+
+    for (auto i = 0u; i < 100; ++i)
+    {
+        project::Person testp = project::Person::CreatePerson(i);
+        project::Person db_p = db->read(i);
+        BOOST_TEST((testp == db_p));
+    }
 
     db->close();
 }

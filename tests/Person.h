@@ -38,6 +38,18 @@ struct Person
             && married == other.married;
         ;
     }
+
+    static Person CreatePerson(std::size_t i)
+    {
+        project::Person p;
+        p.name.first = "Firstname" + std::to_string(i);
+        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
+        p.name.last = "Lastname" + std::to_string(i);
+        p.age = (i % 80);
+        p.salary = (i % 5) * 12345.67;
+        p.married = (i % 2) == 0;
+        return p;
+    }
 };
 
 void ashdb_write(std::ostream &stream, const project::Name& name)

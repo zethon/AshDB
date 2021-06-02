@@ -61,8 +61,8 @@ public:
 
     // returns the accessor boundaries ot the database, for example
     // if we use "db->at(i)", these functions tell us the range of "i"
-    auto startIndex() const { return _startIndex; }
-    auto lastIndex() const { return _lastIndex; }
+    std::optional<std::size_t> startIndex() const { return _startIndex; }
+    std::optional<std::size_t> lastIndex() const { return _lastIndex; }
 
     // returns the size of all the "data-0001.dat" files on the disk
     // but does NOT include the size of the corresponding index
@@ -250,13 +250,18 @@ template<class ThingT>
 void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 {
     const auto datafile = this->activeDataFile();
+    const std::size_t startingOffset = boost::filesystem::exists(datafile) ?
+            boost::filesystem::file_size(datafile) : 0;
 
-    std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+    std::stringstream buffer;
+    std::size_t currentOffset = startingOffset;
 
     while (begin != end)
     {
-        writeIndexEntry(ofs.tellp());
-        ashdb_write(ofs, *begin);
+        writeIndexEntry(currentOffset);
+
+        ashdb_write(buffer, *begin);
+        currentOffset = startingOffset + buffer.tellp();
         ++begin;
 
         if (!_startIndex.has_value())
@@ -271,12 +276,17 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
         }
 
         if (_options.filesize_max > 0
-            &&  ofs.tellp() >= _options.filesize_max)
+            &&  currentOffset > _options.filesize_max)
         {
-            ofs.close();
             _activeSegmentNumber++;
             break;
         }
+    }
+
+    if (buffer.tellp() > 0)
+    {
+        std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+        ofs << buffer.str();
     }
 }
 
@@ -495,10 +505,10 @@ void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     ashdb::ashdb_write(ofs, value);
     ofs.close();
 
-    const auto recordCount = ((_activeSegmentNumber - _startSegmentNumber) + 1);
-    if (_segmentIndices.size() < recordCount)
+    const auto segmentCount = (_activeSegmentNumber - _startSegmentNumber) + 1;
+    if (_segmentIndices.size() < segmentCount)
     {
-        assert(_segmentIndices.size() == recordCount - 1);
+        assert(_segmentIndices.size() == segmentCount - 1);
         _segmentIndices.push_back({});
     }
 
