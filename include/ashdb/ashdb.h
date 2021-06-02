@@ -115,11 +115,11 @@ private:
 
     // writes the given offset to the current index file and will update
     // "_segmentIndices" accordingly
-    bool writeIndexEntry(std::size_t offset);
+    void writeIndexEntry(std::size_t offset);
 
     // writes records to the current data file until the begin == end or
     // until the dat file exceeds the max file size
-    WriteStatus writeBatchUntilFull(BatchIterator& begin, BatchIterator end);
+    void writeBatchUntilFull(BatchIterator& begin, BatchIterator end);
 
     std::string buildDataFilename(std::uint16_t x) const;
     std::string buildIndexFilename(std::uint16_t x) const;
@@ -247,7 +247,7 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
 }
 
 template<class ThingT>
-WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
+void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 {
     const auto datafile = this->activeDataFile();
 
@@ -275,11 +275,9 @@ WriteStatus AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterat
         {
             ofs.close();
             _activeSegmentNumber++;
-            return ashdb::WriteStatus::OK;
+            break;
         }
     }
-
-    return {};
 }
 
 template<class ThingT>
@@ -296,11 +294,7 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
 
     while (begin != end)
     {
-        auto status = writeBatchUntilFull(begin, end);
-        if (status != ashdb::WriteStatus::OK)
-        {
-            return status;
-        }
+        writeBatchUntilFull(begin, end);
 
         // now see if the database is too big and we need to trim it down
         if (_options.database_max > 0
@@ -483,7 +477,7 @@ void AshDB<ThingT>::updateIndexing()
 }
 
 template<class ThingT>
-bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
+void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
 {
     auto value = offset;
 
@@ -496,11 +490,7 @@ bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     }
 
     std::string temp = activeIndexFile();
-    std::ofstream ofs(temp.data(), std::ios::out | std::ios::binary | std::ios::app);
-    if (!ofs.is_open())
-    {
-        return false;
-    }
+    std::ofstream ofs(temp.c_str(), std::ios::out | std::ios::binary | std::ios::app);
 
     ashdb::ashdb_write(ofs, value);
     ofs.close();
@@ -513,8 +503,6 @@ bool AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     }
 
     _segmentIndices.back().push_back(value);
-
-    return true;
 }
 
 template<class ThingT>
@@ -536,6 +524,7 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
 
         retval += static_cast<std::uint64_t>(boost::filesystem::file_size(filepath));
     }
+    
     return retval;
 }
 
