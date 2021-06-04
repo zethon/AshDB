@@ -1,5 +1,31 @@
 # Benchmark 
 
+## 2021-06: Alpha 3
+
+```
+Run on (16 X 2300 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x8)
+  L1 Instruction 32 KiB (x8)
+  L2 Unified 256 KiB (x8)
+  L3 Unified 16384 KiB (x1)
+Load Average: 2.94, 3.60, 3.46
+------------------------------------------------------------------
+Benchmark                        Time             CPU   Iterations
+------------------------------------------------------------------
+DBCreateOpen                 25924 ns        25920 ns        25768
+DBOpenClose                  26393 ns        26390 ns        26994
+DBWriteInt                   93714 ns        93595 ns         7645
+DBMultipleIntWrites        9250266 ns      9241329 ns           76
+DBRandomIntReads           1947999 ns      1951884 ns          361
+DBWriteStruct                98879 ns        96940 ns         7622
+DBMultipleStructWrites    10496381 ns     10501361 ns           72
+DBRandomStructReads        2134887 ns      2138132 ns          340
+BatchWriteSingleFile        235523 ns       226135 ns         2895
+BatchWriteMultipleFiles     962288 ns       941011 ns          711
+BatchReadMultipleFiles      777912 ns       777956 ns          886
+```
+
 ## 2021-06: Alpha 2
 ```
 Run on (16 X 2300 MHz CPU s)

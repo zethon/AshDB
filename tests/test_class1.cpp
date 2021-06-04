@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(class_write1)
     ashdb::Options options;
     options.filesize_max = 100;
 
-    auto db = std::make_unique<PersonDB>(tempFolder, options);
+    auto db = std::make_unique<project::PersonDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
 
     project::Person p;
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(class_write1)
 
     db.reset();
 
-    db = std::make_unique<PersonDB>(tempFolder, options);
+    db = std::make_unique<project::PersonDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
     BOOST_TEST(db->size() == 1);
     auto p1 = db->read(0);
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(class_write2)
     ashdb::Options options;
     options.filesize_max = 100;
 
-    auto db = std::make_unique<PersonDB>(tempFolder, options);
+    auto db = std::make_unique<project::PersonDB>(tempFolder, options);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
 
     for (auto i = 0u; i < 100; ++i)
