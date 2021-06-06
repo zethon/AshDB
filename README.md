@@ -11,9 +11,56 @@ AshDB is a simple index based storage library for native and custom types that p
 
 The database does not support updates. This is designed to be a write-once-read-many database. The database is stored in segments, the max size of each segment can be configured. Likewise, the database can have a limit as a whole which when exceeded, the oldest segments of the database will be deleted.
 
+# Example
+
+Write the digits 0-99 to a new database, then read those numbers back out and print them.
+
+```cpp
+#include <iostream>
+#include <ashdb/ashdb.h>
+
+int main()
+{
+    ashdb::Options options;
+    options.error_if_exists = true; 
+
+    ashdb::AshDB<std::uint32_t> db{"example1", options};
+    assert(db.open() == true);
+    for (auto idx = 0u; idx < 100; ++idx)
+    {
+        db.write(idx);
+    }
+
+    for (auto idx = 0u; idx < 100; ++idx)
+    {
+        std::cout << idx << " : " << db.read(idx) << '\n';
+    }
+    db.close();
+
+    return 0;
+}
+```
+
+## Build
+
+After checking out the code, navigate into the folder and create a new folder called `build`. 
+
+```bash
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=<Debug|Release|etc...> -DBUILD_ASH_TESTS=On
+```
+
+The CMake build options include:
+
+* `BUILD_BENCHMARKS`
+* `BUILD_EXAMPLES`
+* `BUILD_UNIT_TESTS`
+* `CODE_COVERAGE`
+
 ## Options
 
-The database options can be configured through the `Options` struct located in `include/ashdb/options.h`. 
+The database options can be configured through the `ashdb::Options` struct located in `include/ashdb/options.h`. 
 
 * `create_if_missing`: A boolean the defines if the database should be created if it doesn't exist. Existence is defined by whether or not the folder itself exists and not by any particular file or files. The default is true.
 
@@ -54,68 +101,12 @@ BM_DBRandomStructReads       1975045 ns      1977746 ns          354
 
 ## Repository Contents
 
-The public interface is in `include/ashdb/*.h`. 
-
-Header files:
-
-* **include/ashdb/ashdb.h**: Main interface to the DB.
-* **include/ashdb/options.h**: Control over the database, including control over individual file size, max database size, and more.
-* **include/ashdb/status.h**: Status returned from public functions that represent various errors.
-* **include/ashdb/primitives.h**: Implementation of reading and writing primitive C++ types.
-
-## Example
-
-```cpp#include <iostream>
-#include <ashdb/ashdb.h>
-
-namespace app
-{
-
-struct Point
-{
-    std::uint32_t x;
-    std::uint32_t y;
-    std::uint32_t z;
-};
-
-void ashdb_write(std::ostream& stream, const Point& p)
-{
-    ashdb::ashdb_write(stream, p.x);
-    ashdb::ashdb_write(stream, p.y);
-    ashdb::ashdb_write(stream, p.z);
-}
-
-void ashdb_read(std::istream& stream, Point& p)
-{
-    ashdb::ashdb_read(stream, p.x);
-    ashdb::ashdb_read(stream, p.y);
-    ashdb::ashdb_read(stream, p.z);
-}
-
-}
-
-int main()
-{
-    ashdb::Options options;
-    options.prefix = "points";
-    options.extension = "bin";
-    options.filesize_max = 1024 * 1024 * 5;
-
-    ashdb::AshDB<app::Point> db{"./testdb", options};
-    if (auto status = db.open(); status != ashdb::OpenStatus::OK)
-    {
-        std::cerr << ashdb::ToString(status);
-        return 1;
-    }
-
-    for (auto i = 0u; i < 10000; ++i)
-    {
-        app::Point pt { i, 10000 - i, i + i };
-        db.write(pt);
-    }
-
-    db.close();
-
-    return 0;
-}
-```
+* **benchmarks/** : Contains the benchmark tests used to measure performance (not built by default, use `-DBUILD_BENCHMARKS` in CMake step to turn on)
+* **examples/** : Self contained examples of usage (not built by default, use `-DBUILD_EXAMPLES` in CMake step to turn on)
+* **include/** : Root folder for header files
+    * **include/ashdb/ashdb.h**: Main interface to the DB.
+    * **include/ashdb/options.h**: Control over the database, including control over individual file size, max database size, and more.
+    * **include/ashdb/status.h**: Status returned from public functions that represent various errors.
+    * **include/ashdb/primitives.h**: Implementation of reading and writing primitive C++ types.
+* **src** : The compilation units that must be built.
+* **tests** : All unit-tests (not built by default, use `-DBUILD_UNIT_TESTS` in CMake step to turn on)

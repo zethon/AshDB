@@ -9,21 +9,21 @@ CPU Caches:
   L1 Instruction 32 KiB (x8)
   L2 Unified 256 KiB (x8)
   L3 Unified 16384 KiB (x1)
-Load Average: 2.94, 3.60, 3.46
+Load Average: 2.17, 2.15, 2.40
 ------------------------------------------------------------------
 Benchmark                        Time             CPU   Iterations
 ------------------------------------------------------------------
-DBCreateOpen                 25924 ns        25920 ns        25768
-DBOpenClose                  26393 ns        26390 ns        26994
-DBWriteInt                   93714 ns        93595 ns         7645
-DBMultipleIntWrites        9250266 ns      9241329 ns           76
-DBRandomIntReads           1947999 ns      1951884 ns          361
-DBWriteStruct                98879 ns        96940 ns         7622
-DBMultipleStructWrites    10496381 ns     10501361 ns           72
-DBRandomStructReads        2134887 ns      2138132 ns          340
-BatchWriteSingleFile        235523 ns       226135 ns         2895
-BatchWriteMultipleFiles     962288 ns       941011 ns          711
-BatchReadMultipleFiles      777912 ns       777956 ns          886
+DBCreateOpen                 26514 ns        26508 ns        26016
+DBOpenClose                  26130 ns        26121 ns        26592
+DBWriteInt                   97517 ns        97473 ns         7676
+DBMultipleIntWrites        9921559 ns      9919770 ns           74
+DBRandomIntReads           1918775 ns      1923551 ns          354
+DBWriteStruct                99517 ns        98287 ns         7279
+DBMultipleStructWrites     9789499 ns      9794758 ns           66
+DBRandomStructReads        2061805 ns      2065728 ns          338
+BatchWriteSingleFile        291230 ns       240452 ns         3053
+BatchWriteMultipleFiles     948986 ns       940573 ns          562
+BatchReadMultipleFiles      790605 ns       790495 ns          882
 ```
 
 ## 2021-06: Alpha 2
