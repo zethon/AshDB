@@ -319,11 +319,13 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
         indexfs.exceptions(std::ofstream::failbit | std::ofstream::badbit);
         indexfs.open(indexFile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
         indexfs << indexBuffer.str();
+        // deepcode ignore MissingOpenCheckOnFile: `indexfs` has exceptions turned on
         indexfs.close();
 
         std::ofstream datsafs;
         datsafs.exceptions(std::ofstream::failbit | std::ofstream::badbit);
         datsafs.open(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+        // deepcode ignore MissingOpenCheckOnFile: `datsafs` has exceptions turned on
         datsafs << buffer.str();
     }
 }
@@ -550,10 +552,10 @@ void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
         }
     }
 
-    std::string temp = activeIndexFile();
+    std::string indexfile = activeIndexFile();
     std::ofstream indexfs;
-    indexfs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
-    indexfs.open(temp.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+    indexfs.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+    indexfs.open(indexfile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
     ashdb::ashdb_write(indexfs, value);
     indexfs.close();
 
