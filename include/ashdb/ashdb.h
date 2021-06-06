@@ -222,7 +222,7 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     std::scoped_lock lock{_readWriteMutex};
     if (!_open)
     {
-        return WriteStatus::NOT_OPEN;
+        return WriteStatus::DATABASE_NOT_OPEN;
     }
 
     const auto datafile = this->activeDataFile();
@@ -233,9 +233,11 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     // of *this* record
     writeIndexEntry(destfilesize);
 
-    std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
-    ashdb_write(ofs, thing);
-    ofs.close();
+    std::ofstream datafs;
+    datafs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    datafs.open(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+    ashdb_write(datafs, thing);
+    datafs.close();
 
     // now that we've written the data, check the filesize once again
     destfilesize = bfs::file_size(datafile.data());
@@ -252,22 +254,33 @@ template<class ThingT>
 void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 {
     const auto datafile = this->activeDataFile();
+
+    // we have to manually keep track of the file offets by using the current
+    // filesize and the size of the data we're writing
     const std::size_t startingOffset = bfs::exists(datafile) ?
             bfs::file_size(datafile) : 0;
-
-    std::stringstream buffer;
     std::size_t currentOffset = startingOffset;
 
-
+    // we have two buffers: (1) for the data that we won't flush to disk until
+    // we've written as much as we can into this segment, and (2) for the index
+    // offsets which we also won't flush until the very end
     std::stringstream indexBuffer;
+    std::stringstream buffer;
 
     while (begin != end)
     {
+        // If the currentOffset == 0 this means this is the first time we're writing to
+        // this segment. The first entry in an index file is not an offset, since it's
+        // unnecessary because we know the corresponding offset is also 0, but instead
+        // is the index number of the first entry in this segment
         if (currentOffset == 0)
         {
             if (_segmentIndices.size() > 1)
             {
                 const auto& secondToLast = _segmentIndices.end()[-2];
+
+                // under these conditions, `currentOffset` actually represents the
+                // index number of the first item in this segment's datafile
                 currentOffset = secondToLast.at(0) + secondToLast.size();
             }
         }
@@ -279,19 +292,19 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
         currentOffset = startingOffset + buffer.tellp();
         ++begin;
 
-        if (!_startIndex.has_value())
+        if (BOOST_LIKELY(_startIndex.has_value()))
         {
+            (*_lastIndex)++;
+        }
+        else
+        {
+            // this condition should only happen when the database is brand new
             assert(!_lastIndex.has_value());
             _startIndex = 0;
             _lastIndex = 0;
         }
-        else
-        {
-            (*_lastIndex)++;
-        }
 
-        if (_options.filesize_max > 0
-            &&  currentOffset > _options.filesize_max)
+        if (_options.filesize_max > 0 &&  currentOffset > _options.filesize_max)
         {
             break;
         }
@@ -299,13 +312,19 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 
     if (buffer.tellp() > 0)
     {
+        assert(indexBuffer.tellp() > 0);
+
         const std::string indexFile = activeIndexFile();
-        std::ofstream indexfs(indexFile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+        std::ofstream indexfs;
+        indexfs.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        indexfs.open(indexFile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
         indexfs << indexBuffer.str();
         indexfs.close();
 
-        std::ofstream ofs(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
-        ofs << buffer.str();
+        std::ofstream datsafs;
+        datsafs.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        datsafs.open(datafile.data(), std::ios::out | std::ios::binary | std::ios::app);
+        datsafs << buffer.str();
     }
 }
 
@@ -315,7 +334,7 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
     std::scoped_lock lock{_readWriteMutex};
     if (!_open)
     {
-        return WriteStatus::NOT_OPEN;
+        return WriteStatus::DATABASE_NOT_OPEN;
     }
 
     BatchIterator begin = batch.begin();
@@ -371,18 +390,16 @@ ThingT AshDB<ThingT>::read(std::size_t index)
     auto readOffset = localIndex == 0 ? 0 : _segmentIndices[currentRecord][localIndex];
 
     const auto dataFile = buildDataFilename(currentRecord);
-    std::ifstream ifs(dataFile.data(), std::ios_base::binary);
-    if (!ifs.is_open())
-    {
-        std::stringstream ss;
-        ss << "file '" << dataFile << "' is not open";
-        throw std::runtime_error(ss.str());
-    }
+    std::ifstream datafs;
+    datafs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+    datafs.open(dataFile.data(), std::ios_base::binary);
 
-    ifs.seekg(readOffset);
+    datafs.seekg(readOffset);
 
     ThingT thing;
-    ashdb_read(ifs, thing);
+    ashdb_read(datafs, thing);
+    datafs.close();
+
     return thing;
 }
 
@@ -397,32 +414,28 @@ auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>:
 
     for (auto i = index; i < (index + count);)
     {
-        const auto datafile = this->buildDataFilename(segment);
-        std::ifstream ifs(datafile.data(), std::ios_base::binary);
-        if (!ifs.is_open())
-        {
-            std::stringstream ss;
-            ss << "could not open file '" << datafile << "'";
-            throw std::runtime_error(ss.str());
-        }
-
         auto localMax = _segmentIndices[segment].size();
         if (endIndex <= (_segmentIndices[segment][0] + _segmentIndices[segment].size()))
         {
             localMax = endIndex - _segmentIndices[segment][0];
         }
 
+        const auto datafile = this->buildDataFilename(segment);
+        std::ifstream datafs;
+        datafs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+        datafs.open(datafile.data(), std::ios_base::binary);
+
         for (; offsetIndex < localMax; ++i, ++offsetIndex)
         {
             auto readOffset = offsetIndex == 0 ? 0 : _segmentIndices[segment][offsetIndex];
-            ifs.seekg(readOffset);
+            datafs.seekg(readOffset);
 
             ThingT thing;
-            ashdb_read(ifs, thing);
+            ashdb_read(datafs, thing);
             batch.push_back(std::move(thing));
         }
 
-        ifs.close();
+        datafs.close();
         offsetIndex = 0;
         segment++;
     }
@@ -538,10 +551,11 @@ void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
     }
 
     std::string temp = activeIndexFile();
-    std::ofstream ofs(temp.c_str(), std::ios::out | std::ios::binary | std::ios::app);
-
-    ashdb::ashdb_write(ofs, value);
-    ofs.close();
+    std::ofstream indexfs;
+    indexfs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+    indexfs.open(temp.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+    ashdb::ashdb_write(indexfs, value);
+    indexfs.close();
 
     const auto segmentCount = (_activeSegmentNumber - _startSegmentNumber) + 1;
     if (_segmentIndices.size() < segmentCount)

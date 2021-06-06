@@ -20,7 +20,7 @@ BOOST_AUTO_TEST_CASE(batch_not_open)
 {
     auto tempFolder = (ashdb::test::tempFolder("batch_not_open")).string();
     auto db = std::make_unique<project::PersonDB>(tempFolder, ashdb::Options{});
-    BOOST_TEST(db->write(project::PersonDB::Batch{}) == ashdb::WriteStatus::NOT_OPEN);
+    BOOST_TEST(db->write(project::PersonDB::Batch{}) == ashdb::WriteStatus::DATABASE_NOT_OPEN);
 }
 
 BOOST_AUTO_TEST_CASE(batch_write_single_file)

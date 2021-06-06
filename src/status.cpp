@@ -38,8 +38,8 @@ std::string ToString(WriteStatus status)
             throw std::runtime_error("invalid WriteStatus");
         case WriteStatus::OK:
             return "OK";
-        case WriteStatus::NOT_OPEN:
-            return "NOT_OPEN";
+        case WriteStatus::DATABASE_NOT_OPEN:
+            return "DATABASE_NOT_OPEN";
     }
 }
 
