@@ -4,6 +4,8 @@
 
 #include <ashdb/ashdb.h>
 
+#include "../tests/Person.h"
+
 using StringDB = ashdb::AshDB<std::string>;
 
 boost::filesystem::path tempFolder(const std::string& subfolder)
@@ -117,8 +119,6 @@ static void DBRandomIntReads(benchmark::State& state)
 }
 BENCHMARK(DBRandomIntReads);
 
-#include "../tests/Person.h"
-
 static void DBWriteStruct(benchmark::State& state)
 {
     auto tempfolder = (tempFolder("DBWriteStruct")).string();
@@ -217,36 +217,51 @@ static void DBRandomStructReads(benchmark::State& state)
 }
 BENCHMARK(DBRandomStructReads);
 
-// comparison with "DBMultipleStructWrites"
-static void BatchWriteMultipleFiles(benchmark::State& state)
+static void BatchWriteSingleFile(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBStructMultipleWrites")).string();
-
-    ashdb::Options options;
-    options.create_if_missing = true;
-    options.error_if_exists = false;
-
-    ashdb::AshDB<project::Person> db{ tempfolder, options };
-    db.open();
-
+    std:size_t run = 0;
     while (state.KeepRunning())
     {
+        state.PauseTiming();
+        const std::string tempName = "BatchWriteSingleFile" + std::to_string(run);
+        auto tempfolder = (tempFolder(tempName)).string();
+        auto db = std::make_unique<project::PersonDB>(tempfolder, ashdb::Options{});
+        db->open();
         project::PersonDB::Batch batch;
         for (auto i = 0u; i < 100; ++i)
         {
-            state.PauseTiming();
-            project::Person p;
-            p.name.first = "Firstname" + std::to_string(i);
-            p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
-            p.name.last = "Lastname" + std::to_string(i);
-            p.age = (i % 80);
-            p.salary = (i % 5) * 12345.67;
-            p.married = (i % 2) == 0;
+            project::Person p = project::Person::CreatePerson(i);
             batch.push_back(p);
-            state.ResumeTiming();
         }
+        state.ResumeTiming();
 
-        db.write(batch);
+        db->write(batch);
+    }
+}
+BENCHMARK(BatchWriteSingleFile);
+
+// comparison with "DBMultipleStructWrites"
+static void BatchWriteMultipleFiles(benchmark::State& state)
+{
+    std:size_t run = 0;
+    while (state.KeepRunning())
+    {
+        state.PauseTiming();
+        ashdb::Options options;
+        options.filesize_max = 1024;
+        const std::string tempName = "BatchWriteMultipleFiles" + std::to_string(run);
+        auto tempfolder = (tempFolder(tempName)).string();
+        auto db = std::make_unique<project::PersonDB>(tempfolder, options);
+        db->open();
+        project::PersonDB::Batch batch;
+        for (auto i = 0u; i < 100; ++i)
+        {
+            project::Person p = project::Person::CreatePerson(i);
+            batch.push_back(p);
+        }
+        state.ResumeTiming();
+
+        db->write(batch);
     }
 }
 BENCHMARK(BatchWriteMultipleFiles);

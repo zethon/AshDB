@@ -19,9 +19,11 @@ std::string ToString(OpenStatus status);
 enum class WriteStatus
 {
     OK,
-    NOT_OPEN
+    DATABASE_NOT_OPEN,
+    INDEX_FILE_ERROR
 };
 
 std::string ToString(WriteStatus status);
 
 } // namespace ashdb
+

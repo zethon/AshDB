@@ -20,7 +20,7 @@ BOOST_AUTO_TEST_CASE(batch_not_open)
 {
     auto tempFolder = (ashdb::test::tempFolder("batch_not_open")).string();
     auto db = std::make_unique<project::PersonDB>(tempFolder, ashdb::Options{});
-    BOOST_TEST(db->write(project::PersonDB::Batch{}) == ashdb::WriteStatus::NOT_OPEN);
+    BOOST_TEST(db->write(project::PersonDB::Batch{}) == ashdb::WriteStatus::DATABASE_NOT_OPEN);
 }
 
 BOOST_AUTO_TEST_CASE(batch_write_single_file)
@@ -33,26 +33,39 @@ BOOST_AUTO_TEST_CASE(batch_write_single_file)
 
     for (auto i = 0u; i < 100; ++i)
     {
-        project::Person p;
-        p.name.first = "Firstname" + std::to_string(i);
-        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
-        p.name.last = "Lastname" + std::to_string(i);
-        p.age = (i % 80);
-        p.salary = (i % 5) * 12345.67;
-        p.married = (i % 2) == 0;
-
+        project::Person p = project::Person::CreatePerson(i);
         batch.push_back(p);
     }
 
-    auto status = db->write(batch);
-    BOOST_TEST(status == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->size() == 100);
+    BOOST_TEST(db->startIndex().has_value());
+    BOOST_TEST(*(db->startIndex()) == 0);
+    BOOST_TEST(db->lastIndex().has_value());
+    BOOST_TEST(*(db->lastIndex()) == 99);
 
+    for (auto i = 0u; i < 100; ++i)
+    {
+        project::Person testp = project::Person::CreatePerson(i);
+        project::Person db_p = db->read(i);
+        BOOST_TEST((testp == db_p));
+    }
+    db->close();
+
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    for (auto i = 0u; i < 100; ++i)
+    {
+        project::Person testp = project::Person::CreatePerson(i);
+        project::Person db_p = db->read(i);
+        BOOST_TEST((testp == db_p));
+    }
     db->close();
 }
 
 BOOST_AUTO_TEST_CASE(batch_write_multiple_files)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_write1")).string();
+    constexpr auto TotalRecords = 100u;
+    auto tempFolder = (ashdb::test::tempFolder("batch_write_multiple_files")).string();
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -62,56 +75,39 @@ BOOST_AUTO_TEST_CASE(batch_write_multiple_files)
 
     project::PersonDB::Batch batch;
 
-    for (auto i = 0u; i < 100; ++i)
+    for (auto i = 0u; i < TotalRecords; ++i)
     {
-        project::Person p;
-        p.name.first = "Firstname" + std::to_string(i);
-        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
-        p.name.last = "Lastname" + std::to_string(i);
-        p.age = (i % 80);
-        p.salary = (i % 5) * 12345.67;
-        p.married = (i % 2) == 0;
-
+        project::Person p = project::Person::CreatePerson(i);
         batch.push_back(p);
     }
 
     BOOST_TEST(db->write(batch) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db->size() == TotalRecords);
     BOOST_TEST(db->startIndex().has_value());
     BOOST_TEST(*(db->startIndex()) == 0);
     BOOST_TEST(db->lastIndex().has_value());
-    BOOST_TEST(*(db->lastIndex()) == 99);
-    BOOST_TEST(db->size() == 100);
-    BOOST_TEST(db->startIndex().has_value());
-    BOOST_TEST(*db->startIndex() == 0);
-    BOOST_TEST(db->lastIndex().has_value());
-    BOOST_TEST(*db->lastIndex() == 99);
+    BOOST_TEST(*(db->lastIndex()) == TotalRecords-1);
 
-    db->close();
-    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
-    BOOST_TEST(db->size() == 100);
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-
-    // test 100 random records
-    for (auto idx = 0; idx < 100; ++idx)
+    for (auto i = 0u; i < TotalRecords; ++i)
     {
-        std::uniform_int_distribution<> distrib(0, 99);
-        std::uint32_t i = static_cast<std::uint32_t>(distrib(gen));
-
-        auto temp = db->read(i);
-
-        project::Person p;
-        p.name.first = "Firstname" + std::to_string(i);
-        p.name.middle = (i % 2) ? "Middle" + std::to_string(i) : "";
-        p.name.last = "Lastname" + std::to_string(i);
-        p.age = (i % 80);
-        p.salary = (i % 5) * 12345.67;
-        p.married = (i % 2) == 0;
-
-        BOOST_TEST((temp == p));
+        project::Person testp = project::Person::CreatePerson(i);
+        project::Person db_p = db->read(i);
+        BOOST_TEST((testp == db_p));
     }
-}
+    db->close();
+
+    BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
+    for (auto i = 0u; i < TotalRecords; ++i)
+    {
+        project::Person testp = project::Person::CreatePerson(i);
+        project::Person db_p = db->read(i);
+        if (!(testp == db_p))
+        {
+            std::cout << "oops!\n";
+        }
+        BOOST_TEST((testp == db_p));
+    }
+    db->close();}
 
 BOOST_AUTO_TEST_CASE(batch_read1)
 {

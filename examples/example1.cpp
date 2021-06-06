@@ -1,76 +1,35 @@
+// Example 1 - This example writes 100 random digits to an AshDB
+//             and iterartes the database printing them out.
 #include <iostream>
 #include <random>
 #include <ashdb/ashdb.h>
 
-namespace app
-{
-
-struct Point
-{
-    std::uint32_t x;
-    std::uint32_t y;
-    std::uint32_t z;
-};
-
-void ashdb_write(std::ostream& stream, const Point& p)
-{
-    ashdb::ashdb_write(stream, p.x);
-    ashdb::ashdb_write(stream, p.y);
-    ashdb::ashdb_write(stream, p.z);
-}
-
-void ashdb_read(std::istream& stream, Point& p)
-{
-    ashdb::ashdb_read(stream, p.x);
-    ashdb::ashdb_read(stream, p.y);
-    ashdb::ashdb_read(stream, p.z);
-}
-
-} // namespace app
-
-namespace std
-{
-
-std::ostream& operator<<(std::ostream& out, const app::Point& pt)
-{
-    out << "x=" << pt.x << ", y=" << pt.y << ", z=" << pt.z;
-    return out;
-}
-
-} // namespace std
-
 int main()
 {
-    // we will generate some random numbers later
+    // set up the random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distrib(0, 1'000'000);
 
     ashdb::Options options;
-    options.prefix = "points";
-    options.extension = "bin";
-    options.filesize_max = 1024 * 1024 * 5;
+    options.error_if_exists = true; 
 
-    ashdb::AshDB<app::Point> db{"./testdb", options};
+    ashdb::AshDB<std::uint32_t> db{"./example1", options};
     if (auto status = db.open(); status != ashdb::OpenStatus::OK)
     {
-        std::cerr << ashdb::ToString(status);
+        std::cerr << "Could not open database because " << ashdb::ToString(status) << '\n';
         return 1;
     }
 
-    for (auto i = 0u; i < 10000; ++i)
+    for (auto idx = 0u; idx < 100; ++idx)
     {
-        app::Point pt { i, 10000 - i, i + i };
-        db.write(pt);
+        std::uint32_t i = static_cast<std::uint32_t>(distrib(gen));
+        db.write(i);
     }
 
-    // load a bunch of random points and print them
-    for (auto x = 0u; x < 10000; ++x)
+    for (auto idx = 0u; idx < 100; ++idx)
     {
-        std::uniform_int_distribution<> distrib(0, 99);
-        std::uint32_t i = static_cast<std::uint32_t>(distrib(gen));
-
-        auto pt = db.read(i);
-        std::cout << pt << '\n';
+        std::cout << idx << " : " << db.read(idx) << '\n';
     }
 
     db.close();

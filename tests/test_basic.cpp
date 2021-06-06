@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(status_to_string_tests)
     BOOST_TEST(ashdb::ToString(ashdb::OpenStatus::ALREADY_OPEN) == "ALREADY_OPEN");
 
     BOOST_TEST(ashdb::ToString(ashdb::WriteStatus::OK) == "OK");
-    BOOST_TEST(ashdb::ToString(ashdb::WriteStatus::NOT_OPEN) == "NOT_OPEN");
+    BOOST_TEST(ashdb::ToString(ashdb::WriteStatus::DATABASE_NOT_OPEN) == "DATABASE_NOT_OPEN");
 }
 
 BOOST_AUTO_TEST_CASE(db_open)
@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(db_write1)
     options.filesize_max = 10;
 
     std::unique_ptr<StringDB> db = std::make_unique<StringDB>(tempFolder, options);
-    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::NOT_OPEN);
+    BOOST_TEST(db->write(piStr) == ashdb::WriteStatus::DATABASE_NOT_OPEN);
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
     BOOST_TEST(!db->startIndex().has_value());
     BOOST_TEST(!db->lastIndex().has_value());
