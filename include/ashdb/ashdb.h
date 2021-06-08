@@ -61,6 +61,13 @@ public:
     [[nodiscard]]
     Batch read(std::size_t index, std::size_t count);
 
+    // deletes all records starting at, and includins, `startIndex
+    // so that the last index in the database will be `startIndex-1`
+    void truncate(std::size_t startIndex);
+
+    // delete everything
+    void reset();
+
     // returns the accessor boundaries ot the database, for example
     // if we use "db->at(i)", these functions tell us the range of "i"
     std::optional<std::size_t> startIndex() const { return _startIndex; }
@@ -443,6 +450,21 @@ auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>:
     }
 
     return batch;
+}
+
+template<class ThingT>
+void AshDB<ThingT>::truncate(std::size_t startIndex)
+{
+    std::scoped_lock lock{_readWriteMutex};
+
+    auto [currentRecord, localIndex] = findIndexDetails(startIndex);
+
+}
+
+template<class ThingT>
+void AshDB<ThingT>::reset()
+{
+    std::scoped_lock lock{_readWriteMutex};
 }
 
 template<class ThingT>
