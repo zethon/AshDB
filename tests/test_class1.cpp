@@ -16,7 +16,7 @@ BOOST_AUTO_TEST_SUITE(class_tests)
 
 BOOST_AUTO_TEST_CASE(class_write1)
 {
-    auto tempFolder = (ashdb::test::tempFolder("class_write1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("class_write1"));
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(class_write1)
 
 BOOST_AUTO_TEST_CASE(class_write2)
 {
-    auto tempFolder = (ashdb::test::tempFolder("class_write1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("class_write1"));
 
     ashdb::Options options;
     options.filesize_max = 100;

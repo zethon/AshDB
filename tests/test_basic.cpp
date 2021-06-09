@@ -53,13 +53,13 @@ BOOST_AUTO_TEST_CASE(db_open)
     ashdb::Options options;
     options.create_if_missing = true;
     options.error_if_exists = false;
-    ashdb::AshDB<std::string> db{tempFolder.string(), options};
+    ashdb::AshDB<std::string> db{tempFolder, options};
     BOOST_TEST(db.open() == ashdb::OpenStatus::OK);
     BOOST_TEST(db.startSegmentNumber() == 0);
     BOOST_TEST(db.activeSegmentNumber() == 0);
 
     options.error_if_exists = true;
-    ashdb::AshDB<std::string> db2{tempFolder.string(), options};
+    ashdb::AshDB<std::string> db2{tempFolder, options};
     BOOST_TEST(db2.open() == ashdb::OpenStatus::EXISTS);
     BOOST_TEST(db2.startSegmentNumber() == 0);
     BOOST_TEST(db2.activeSegmentNumber() == 0);
@@ -69,7 +69,8 @@ BOOST_AUTO_TEST_CASE(db_open_error)
 {
     // boost's temp_directory_path() will create the folder it's returning
     // so in this case we'll use a subfolder that we know doesn't exists
-    auto tempFolder = ashdb::test::tempFolder("db_open_error") / "new_db";
+    auto tempFolder =
+            std::filesystem::path{ashdb::test::tempFolder("db_open_error")} / "new_db";
 
     ashdb::Options options;
     options.create_if_missing = false;
@@ -88,7 +89,7 @@ BOOST_AUTO_TEST_CASE(db_open_error)
 
 BOOST_AUTO_TEST_CASE(db_open_failed)
 {
-    auto tempFolder = (ashdb::test::tempFolder("db_open_failed")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_open_failed"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -122,7 +123,7 @@ BOOST_AUTO_TEST_CASE(db_open_failed)
 
 BOOST_AUTO_TEST_CASE(db_write1)
 {
-    auto tempFolder = (ashdb::test::tempFolder("db_write1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_write1"));
 
     ashdb::Options options;
     options.filesize_max = 10;
@@ -175,7 +176,7 @@ BOOST_AUTO_TEST_CASE(db_write1)
 BOOST_AUTO_TEST_CASE(db_write2)
 {
     static const char* piStr = "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491298336733624406566430860213949463952247371907021798609437027705392171762931767523846748184676694051320005681271452635608277857713427577896091736371787214684409012249534301465495853710507922796892589235420199561121290219608640344181598136297747713099605187072113499999983729780499510597317328160963185950244594553469083026425223082533446850352619311881710100031378387528865875332083814206171776691473035982534904287554687311595628638823537875937519577818577805321712268066130019278766111959092164201989";
-    auto tempFolder = (ashdb::test::tempFolder("db_write2")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_write2"));
 
     ashdb::Options options;
     options.filesize_max = 1536;
@@ -237,7 +238,7 @@ BOOST_AUTO_TEST_CASE(db_write2)
 BOOST_AUTO_TEST_CASE(db_write3)
 {
     static const char *piStr = "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491298336733624406566430860213949463952247371907021798609437027705392171762931767523846748184676694051320005681271452635608277857713427577896091736371787214684409012249534301465495853710507922796892589235420199561121290219608640344181598136297747713099605187072113499999983729780499510597317328160963185950244594553469083026425223082533446850352619311881710100031378387528865875332083814206171776691473035982534904287554687311595628638823537875937519577818577805321712268066130019278766111959092164201989";
-    auto tempFolder = (ashdb::test::tempFolder("db_write3")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_write3"));
 
     ashdb::Options options;
     options.filesize_max = 256;
@@ -304,7 +305,7 @@ BOOST_AUTO_TEST_CASE(db_write3)
 
 BOOST_AUTO_TEST_CASE(db_read1)
 {
-    auto tempFolder = (ashdb::test::tempFolder("db_read1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_read1"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -337,7 +338,7 @@ BOOST_AUTO_TEST_CASE(db_read1)
 BOOST_AUTO_TEST_CASE(db_read2)
 {
     static auto dataStr = "[ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ-";
-    auto tempFolder = (ashdb::test::tempFolder("db_read2")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_read2"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -372,7 +373,7 @@ BOOST_AUTO_TEST_CASE(db_read2)
 
 BOOST_AUTO_TEST_CASE(db_read3)
 {
-    auto tempFolder = (ashdb::test::tempFolder("db_read3")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_read3"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -396,7 +397,7 @@ BOOST_AUTO_TEST_CASE(db_read3)
 
 BOOST_AUTO_TEST_CASE(db_read4)
 {
-    auto tempFolder = (ashdb::test::tempFolder("db_read4")).string();
+    auto tempFolder = (ashdb::test::tempFolder("db_read4"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -425,7 +426,7 @@ BOOST_AUTO_TEST_CASE(db_read4)
 
 BOOST_AUTO_TEST_CASE(delete_files)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_errors"));
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -451,7 +452,7 @@ BOOST_AUTO_TEST_CASE(delete_files)
     // remove the last file
     const auto datafile = db->activeDataFile();
     BOOST_TEST(boost::ends_with(datafile, "3.ash"));
-    boost::filesystem::remove(datafile);
+    std::filesystem::remove(datafile);
 
     // and now try to get a record in the file we just deleted
     BOOST_CHECK_THROW(auto t = db->read(3), std::runtime_error);
@@ -459,7 +460,7 @@ BOOST_AUTO_TEST_CASE(delete_files)
 
 BOOST_AUTO_TEST_CASE(move_ctor)
 {
-    auto tempFolder = ashdb::test::tempFolder("move_ctor").string();
+    auto tempFolder = ashdb::test::tempFolder("move_ctor");
 
     ashdb::Options options;
     options.filesize_max = 1024;

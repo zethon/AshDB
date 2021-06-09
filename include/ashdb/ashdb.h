@@ -1,12 +1,11 @@
 #pragma once
 
-#include <iostream>
 #include <sstream>
+#include <fstream>
 #include <atomic>
 #include <optional>
 #include <vector>
-
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 #include "options.h"
 #include "primitives.h"
@@ -15,7 +14,7 @@
 namespace ashdb
 {
 
-namespace bfs = boost::filesystem;
+namespace fs = std::filesystem;
 
 using SegmentIndices = std::vector<std::vector<std::size_t>>;
 
@@ -201,12 +200,12 @@ OpenStatus AshDB<ThingT>::open()
 
     std::scoped_lock lock{_readWriteMutex};
 
-    bfs::path dbpath{ _dbfolder };
-    if (!bfs::exists(dbpath))
+    fs::path dbpath{_dbfolder };
+    if (!fs::exists(dbpath))
     {
         if (_options.create_if_missing)
         {
-            bfs::create_directories(dbpath);
+            fs::create_directories(dbpath);
         }
         else
         {
@@ -243,8 +242,8 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     }
 
     const auto datafile = this->activeDataFile();
-    auto destfilesize = bfs::exists(datafile)
-            ? bfs::file_size(datafile.data()) : 0u;
+    auto destfilesize = fs::exists(datafile)
+                        ? fs::file_size(datafile.data()) : 0u;
 
     // write the offset of the current filesize, since this marks the beginning
     // of *this* record
@@ -257,7 +256,7 @@ WriteStatus AshDB<ThingT>::write(const ThingT& thing)
     datafs.close();
 
     // now that we've written the data, check the filesize once again
-    destfilesize = bfs::file_size(datafile.data());
+    destfilesize = fs::file_size(datafile.data());
     updateIndexing();
     if (_options.filesize_max > 0 && destfilesize >= _options.filesize_max)
     {
@@ -274,8 +273,8 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 
     // we have to manually keep track of the file offsets by using the current
     // filesize and the size of the data we're writing
-    const std::size_t startingOffset = bfs::exists(datafile) ?
-            bfs::file_size(datafile) : 0;
+    const std::size_t startingOffset = fs::exists(datafile) ?
+                                       fs::file_size(datafile) : 0;
     std::size_t currentOffset = startingOffset;
 
     // we have two buffers: (1) for the data that we won't flush to disk until
@@ -309,7 +308,7 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
         currentOffset = startingOffset + buffer.tellp();
         ++begin;
 
-        if (BOOST_LIKELY(_startIndex.has_value()))
+        if (_startIndex.has_value())
         {
             (*_lastIndex)++;
         }
@@ -377,7 +376,7 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
         // in case we stopped writing because the segment file got too big
         // we need to increment the segment number
         if ((begin != end) ||
-            (_options.filesize_max > 0 && (bfs::file_size(activeDataFile()) > _options.filesize_max)))
+            (_options.filesize_max > 0 && (fs::file_size(activeDataFile()) > _options.filesize_max)))
         {
             _activeSegmentNumber++;
         }
@@ -388,8 +387,8 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
         {
             const auto fn = buildDataFilename(_startSegmentNumber);
             const auto ifn = buildIndexFilename(_startSegmentNumber);
-            bfs::remove(fn);
-            bfs::remove(ifn);
+            fs::remove(fn);
+            fs::remove(ifn);
 
             _startSegmentNumber++;
             _segmentIndices.erase(_segmentIndices.begin());
@@ -474,11 +473,11 @@ void AshDB<ThingT>::truncate(std::size_t startIndex)
         // trim the data file
         const auto offset = _segmentIndices[currentSegment][localIndex];
         const auto datafile { buildDataFilename(currentSegment) };
-        boost::filesystem::resize_file(datafile.c_str(), offset);
+        fs::resize_file(datafile.c_str(), offset);
 
         // trim the index file
         const auto indexfile { buildIndexFilename(currentSegment) };
-        boost::filesystem::resize_file(indexfile.c_str(), localIndex * sizeof(std::size_t));
+        fs::resize_file(indexfile.c_str(), localIndex * sizeof(std::size_t));
 
         // start deleting segment files at the next segment
         currentSegment++;
@@ -488,10 +487,10 @@ void AshDB<ThingT>::truncate(std::size_t startIndex)
     while (currentSegment <= _activeSegmentNumber)
     {
         const auto datafile { buildDataFilename(currentSegment) };
-        boost::filesystem::remove(datafile.c_str());
+        fs::remove(datafile.c_str());
 
         const auto indexfile { buildIndexFilename(currentSegment) };
-        boost::filesystem::remove(indexfile.c_str());
+        bfs:remove(indexfile.c_str());
 
         currentSegment++;
     }
@@ -509,7 +508,7 @@ void AshDB<ThingT>::reset()
     for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
     {
         const auto indexFilename = buildIndexFilename(i);
-        if (bfs::exists(indexFilename))
+        if (fs::exists(indexFilename))
         {
             _segmentIndices.push_back({});
             _segmentIndices.back() = ashdb::ReadIndexFile(indexFilename);
@@ -522,10 +521,10 @@ void AshDB<ThingT>::reset()
 template<class ThingT>
 void AshDB<ThingT>::findFileBoundaries()
 {
-    bfs::path dbpath{_dbfolder};
+    fs::path dbpath{_dbfolder};
 
     // early fail if the folder is empty
-    if (bfs::is_empty(dbpath))
+    if (fs::is_empty(dbpath))
     {
         return;
     }
@@ -539,7 +538,7 @@ void AshDB<ThingT>::findFileBoundaries()
     for (std::uint16_t i = 0u; i < std::numeric_limits<std::uint16_t>::max(); ++i)
     {
         auto filename = ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, i);
-        if (bfs::exists(filename))
+        if (fs::exists(filename))
         {
             if (!found)
             {
@@ -560,8 +559,8 @@ void AshDB<ThingT>::findFileBoundaries()
 
     if (const auto datafile = activeDataFile();
         _options.filesize_max != 0
-        && bfs::exists(datafile.data())
-        && bfs::file_size(datafile.data()) >= _options.filesize_max)
+        && fs::exists(datafile.data())
+        && fs::file_size(datafile.data()) >= _options.filesize_max)
     {
         _activeSegmentNumber++;
     }
@@ -604,8 +603,8 @@ void AshDB<ThingT>::updateIndexing()
     {
         const auto fn = buildDataFilename(_startSegmentNumber);
         const auto ifn = buildIndexFilename(_startSegmentNumber);
-        bfs::remove(fn);
-        bfs::remove(ifn);
+        fs::remove(fn);
+        fs::remove(ifn);
 
         _startSegmentNumber++;
         _segmentIndices.erase(_segmentIndices.begin());
@@ -652,15 +651,15 @@ std::uint64_t AshDB<ThingT>::databaseSize() const
         const auto filename = ashdb::BuildFilename(
                 _dbfolder, _options.prefix, _options.extension, i);
 
-        bfs::path filepath{filename};
+        fs::path filepath{filename};
 
-        if (!bfs::exists(filepath))
+        if (!fs::exists(filepath))
         {
             assert(i == _activeSegmentNumber);
             break;
         }
 
-        retval += static_cast<std::uint64_t>(bfs::file_size(filepath));
+        retval += static_cast<std::uint64_t>(fs::file_size(filepath));
     }
     
     return retval;

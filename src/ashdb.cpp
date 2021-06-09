@@ -2,7 +2,7 @@
 #include <iomanip>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
 
 #include "../include/ashdb/ashdb.h"
 
@@ -26,7 +26,7 @@ std::string BuildFilename(const std::string& folder,
 
     const std::string filename = prefix + "-" + ss.str() + "." + extension;
 
-    boost::filesystem::path path { folder };
+    fs::path path {folder };
     path /= filename;
     return path.string();
 }
@@ -35,7 +35,7 @@ std::vector<std::size_t> ReadIndexFile(const std::string& filename)
 {
     std::vector<std::size_t> retval;
 
-    if (!boost::filesystem::exists(filename))
+    if (!fs::exists(filename))
     {
         return {};
     }
