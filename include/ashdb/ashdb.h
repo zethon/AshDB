@@ -36,6 +36,9 @@ class AshDB
 public:
     using Batch = std::vector<ThingT>;
     using BatchIterator = typename std::vector<ThingT>::const_iterator;
+
+    // 0 - the segment index (i.e. _segmentIndicies[x]
+    // 1 - the index of the offset within the segment index (i.e. _segmentIndicies[x][y])
     using IndexDetails = std::tuple<std::size_t, std::size_t>;
 
     AshDB(const std::string& folder, const Options& options)
@@ -60,6 +63,10 @@ public:
 
     [[nodiscard]]
     Batch read(std::size_t index, std::size_t count);
+
+    // deletes all records starting at, and includins, `startIndex
+    // so that the last index in the database will be `startIndex-1`
+    void truncate(std::size_t startIndex);
 
     // returns the accessor boundaries ot the database, for example
     // if we use "db->at(i)", these functions tell us the range of "i"
@@ -128,6 +135,9 @@ private:
 
     IndexDetails findIndexDetails(std::size_t index);
 
+    // reset the segment indices and all tracking info
+    void reset();
+
     //////////////////////////////////////////////
     // private variables
     const std::string       _dbfolder;
@@ -187,21 +197,7 @@ OpenStatus AshDB<ThingT>::open()
         return OpenStatus::EXISTS;
     }
 
-    findFileBoundaries();
-
-    // load the record-index
-    _segmentIndices.clear();
-    for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
-    {
-        const auto indexFilename = buildIndexFilename(i);
-        if (bfs::exists(indexFilename))
-        {
-            _segmentIndices.push_back({});
-            _segmentIndices.back() = ashdb::ReadIndexFile(indexFilename);
-        }
-    }
-
-    findIndexBoundaries();
+    reset();
 
     _open = true;
     return OpenStatus::OK;
@@ -446,6 +442,63 @@ auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>:
 }
 
 template<class ThingT>
+void AshDB<ThingT>::truncate(std::size_t startIndex)
+{
+    std::scoped_lock lock{_readWriteMutex};
+
+    auto [currentSegment, localIndex] = findIndexDetails(startIndex);
+
+    if (localIndex > 0)
+    {
+        // trim the data file
+        const auto offset = _segmentIndices[currentSegment][localIndex];
+        const auto datafile { buildDataFilename(currentSegment) };
+        boost::filesystem::resize_file(datafile.c_str(), offset);
+
+        // trim the index file
+        const auto indexfile { buildIndexFilename(currentSegment) };
+        boost::filesystem::resize_file(indexfile.c_str(), localIndex * sizeof(std::size_t));
+
+        // start deleting segment files at the next segment
+        currentSegment++;
+    }
+
+    // delete all excess segment and index files
+    while (currentSegment <= _activeSegmentNumber)
+    {
+        const auto datafile { buildDataFilename(currentSegment) };
+        boost::filesystem::remove(datafile.c_str());
+
+        const auto indexfile { buildIndexFilename(currentSegment) };
+        boost::filesystem::remove(indexfile.c_str());
+
+        currentSegment++;
+    }
+
+    reset();
+}
+
+template<class ThingT>
+void AshDB<ThingT>::reset()
+{
+    findFileBoundaries();
+
+    // load the record-index
+    _segmentIndices.clear();
+    for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
+    {
+        const auto indexFilename = buildIndexFilename(i);
+        if (bfs::exists(indexFilename))
+        {
+            _segmentIndices.push_back({});
+            _segmentIndices.back() = ashdb::ReadIndexFile(indexFilename);
+        }
+    }
+
+    findIndexBoundaries();
+}
+
+template<class ThingT>
 void AshDB<ThingT>::findFileBoundaries()
 {
     bfs::path dbpath{_dbfolder};
@@ -616,7 +669,7 @@ typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t
     }
 
     std::optional<std::size_t> localIndex = 0;
-    std::size_t currentRecord = _startSegmentNumber;
+    std::size_t currentSegment = _startSegmentNumber;
     for (const auto& offsets : _segmentIndices)
     {
         if (index < (offsets.front() + offsets.size()))
@@ -626,7 +679,7 @@ typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t
         }
         else
         {
-            currentRecord++;
+            currentSegment++;
         }
     }
 
@@ -637,7 +690,7 @@ typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t
         throw std::runtime_error(ss.str());
     }
 
-    return IndexDetails{ currentRecord, *localIndex };
+    return IndexDetails{currentSegment, *localIndex };
 }
 
 template<class ThingT>

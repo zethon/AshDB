@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
 
 BOOST_AUTO_TEST_CASE(batch_trim)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_trim")).string();
 
     ashdb::Options options;
     options.filesize_max = 100;
