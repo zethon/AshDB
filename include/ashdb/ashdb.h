@@ -49,6 +49,27 @@ public:
         _lastIndex.reset();
     }
 
+    AshDB(AshDB&& other)
+        : AshDB(other._dbfolder, other._options)
+    {
+        _segmentIndices = std::move(other._segmentIndices);
+        _startIndex = std::move(other._startIndex);
+        _lastIndex = std::move(other._lastIndex);
+        _startSegmentNumber = std::move(other._startSegmentNumber);
+        _activeSegmentNumber = std::move(other._activeSegmentNumber);
+        _open = static_cast<bool>(other._open);
+    }
+
+    AshDB(const AshDB&) = delete;
+
+    ~AshDB()
+    {
+        if (_open)
+        {
+            close();
+        }
+    }
+
     [[maybe_unused]] OpenStatus open();
     void close();
 
@@ -86,7 +107,7 @@ public:
     std::uint16_t startSegmentNumber() const { return _startSegmentNumber; }
     std::uint16_t activeSegmentNumber() const { return _activeSegmentNumber; }
 
-    // returns the full path of the file tobench which the next record will
+    // returns the full path of the file to which the next record will
     // be written
     std::string activeDataFile() const
     {
@@ -140,12 +161,12 @@ private:
 
     //////////////////////////////////////////////
     // private variables
-    const std::string       _dbfolder;
-    const Options           _options;
+    std::string       _dbfolder;
+    Options           _options;
 
     SegmentIndices             _segmentIndices;
 
-    // the first and last accessors of the records using `at()` or `operator[]`
+    // the index boundaries of the data
     std::optional<std::size_t>  _startIndex = 0;
     std::optional<std::size_t>  _lastIndex = 0;
 
@@ -251,7 +272,7 @@ void AshDB<ThingT>::writeBatchUntilFull(BatchIterator& begin, BatchIterator end)
 {
     const auto datafile = this->activeDataFile();
 
-    // we have to manually keep track of the file offets by using the current
+    // we have to manually keep track of the file offsets by using the current
     // filesize and the size of the data we're writing
     const std::size_t startingOffset = bfs::exists(datafile) ?
             bfs::file_size(datafile) : 0;

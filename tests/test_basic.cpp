@@ -2,10 +2,11 @@
 #include <boost/test/data/test_case.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
-#include "Test.h"
-
 #include "../include/ashdb/ashdb.h"
 #include "../include/ashdb/status.h"
+
+#include "Test.h"
+#include "Person.h"
 
 namespace data = boost::unit_test::data;
 
@@ -454,6 +455,35 @@ BOOST_AUTO_TEST_CASE(delete_files)
 
     // and now try to get a record in the file we just deleted
     BOOST_CHECK_THROW(auto t = db->read(3), std::runtime_error);
+}
+
+BOOST_AUTO_TEST_CASE(move_ctor)
+{
+    auto tempFolder = ashdb::test::tempFolder("move_ctor").string();
+
+    ashdb::Options options;
+    options.filesize_max = 1024;
+
+    project::PersonDB db{tempFolder, options};
+    BOOST_TEST(db.open() == ashdb::OpenStatus::OK);
+
+    project::PersonDB::Batch batch;
+
+    // create the initial 100 records
+    for (auto i = 0u; i < 100; ++i)
+    {
+        project::Person p = project::Person::CreatePerson(i);
+        batch.push_back(p);
+    }
+    BOOST_TEST(db.write(batch) == ashdb::WriteStatus::OK);
+
+    const auto startSegment = db.startSegmentNumber();
+    const auto activeSegment = db.activeSegmentNumber();
+
+    project::PersonDB db2 = std::move(db);
+    BOOST_TEST(db2.size() == 100);
+    BOOST_TEST(db2.startSegmentNumber() == startSegment);
+    BOOST_TEST(db2.activeSegmentNumber() == activeSegment);
 }
 
 BOOST_AUTO_TEST_SUITE_END() 
