@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(simple_truncate)
 
 BOOST_AUTO_TEST_CASE(boundary)
 {
-    auto tempFolder = ashdb::test::tempFolder("simple_truncate").string();
+    auto tempFolder = ashdb::test::tempFolder("boundary").string();
 
     ashdb::Options options;
     options.filesize_max = 1024;
