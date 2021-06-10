@@ -18,14 +18,14 @@ BOOST_AUTO_TEST_SUITE(batch)
 
 BOOST_AUTO_TEST_CASE(batch_not_open)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_not_open")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_not_open"));
     auto db = std::make_unique<project::PersonDB>(tempFolder, ashdb::Options{});
     BOOST_TEST(db->write(project::PersonDB::Batch{}) == ashdb::WriteStatus::DATABASE_NOT_OPEN);
 }
 
 BOOST_AUTO_TEST_CASE(batch_write_single_file)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_write1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_write1"));
     auto db = std::make_unique<project::PersonDB>(tempFolder, ashdb::Options{});
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);
 
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(batch_write_single_file)
 BOOST_AUTO_TEST_CASE(batch_write_multiple_files)
 {
     constexpr auto TotalRecords = 100u;
-    auto tempFolder = (ashdb::test::tempFolder("batch_write_multiple_files")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_write_multiple_files"));
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(batch_write_multiple_files)
 
 BOOST_AUTO_TEST_CASE(batch_read1)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_read1")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_read1"));
 
     ashdb::Options options;
     options.filesize_max = 375; // should fit 4 100 character strings
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(batch_read1)
 
 BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_read_write_multiple_files")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_read_write_multiple_files"));
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(batch_read_write_multiple_files)
 
 BOOST_AUTO_TEST_CASE(batch_trim)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_trim")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_trim"));
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE(batch_trim)
 
 BOOST_AUTO_TEST_CASE(batch_errors)
 {
-    auto tempFolder = (ashdb::test::tempFolder("batch_errors")).string();
+    auto tempFolder = (ashdb::test::tempFolder("batch_errors"));
 
     ashdb::Options options;
     options.filesize_max = 100;
@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE(batch_errors)
 
 BOOST_AUTO_TEST_CASE(empty_batch_write)
 {
-    auto tempFolder = (ashdb::test::tempFolder("empty_batch_write")).string();
+    auto tempFolder = (ashdb::test::tempFolder("empty_batch_write"));
 
     auto db = std::make_unique<StringDB>(tempFolder, ashdb::Options{});
     BOOST_TEST(db->open() == ashdb::OpenStatus::OK);

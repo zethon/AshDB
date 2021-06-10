@@ -1,8 +1,4 @@
-#include <limits>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-
+#include <stdexcept>
 
 #include "../include/ashdb/status.h"
 

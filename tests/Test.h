@@ -1,9 +1,9 @@
 #pragma once
 #include <iostream>
+#include <filesystem>
 
 #include <boost/test/data/test_case.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/filesystem.hpp>
 
 #include "../include/ashdb/ashdb.h"
 
@@ -30,21 +30,25 @@ std::ostream& operator<<(std::ostream& out, ashdb::WriteStatus status)
 namespace ashdb::test
 {
 
-boost::filesystem::path tempFolder()
+std::string tempFolder()
 {
-    auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("ashdb%%%%%%");
+    const auto now = std::chrono::system_clock::now();
+    const auto epoch = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    auto temp = std::filesystem::temp_directory_path() / std::to_string(epoch);
     temp /= std::to_string(boost::unit_test::framework::current_test_case().p_id);
-    boost::filesystem::create_directories(temp);
-    return temp;
+    std::filesystem::create_directories(temp);
+    return temp.string();
 }
 
-boost::filesystem::path tempFolder(const std::string& subfolder)
+std::string tempFolder(const std::string& subfolder)
 {
-    auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("ashdb%%%%%%");
+    const auto now = std::chrono::system_clock::now();
+    const auto epoch = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    auto temp = std::filesystem::temp_directory_path() / std::to_string(epoch);
     temp /= subfolder;
     temp /= std::to_string(boost::unit_test::framework::current_test_case().p_id);
-    boost::filesystem::create_directories(temp);
-    return temp;
+    std::filesystem::create_directories(temp);
+    return temp.string();
 }
 
 } // namespace ashdb::test

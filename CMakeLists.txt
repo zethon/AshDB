@@ -18,7 +18,6 @@ conan_cmake_run(REQUIRES
     OPTIONS
         boost:without_contract=False
         boost:without_test=False
-        boost:without_filesystem=False
 )
 conan_basic_setup(NO_OUTPUT_DIRS KEEP_RPATHS)
 

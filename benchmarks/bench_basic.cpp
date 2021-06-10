@@ -8,17 +8,19 @@
 
 using StringDB = ashdb::AshDB<std::string>;
 
-boost::filesystem::path tempFolder(const std::string& subfolder)
+std::string tempFolder(const std::string& subfolder)
 {
-    auto temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("ashdb%%%%%%");
+    const auto now = std::chrono::system_clock::now();
+    const auto epoch = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    auto temp = std::filesystem::temp_directory_path() / std::to_string(epoch);
     temp /= subfolder;
-    boost::filesystem::create_directories(temp);
-    return temp;
+    std::filesystem::create_directories(temp);
+    return temp.string();
 }
 
 static void DBCreateOpen(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBCreateOpen")).string();
+    auto tempfolder = (tempFolder("DBCreateOpen"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -34,7 +36,7 @@ BENCHMARK(DBCreateOpen);
 
 static void DBOpenClose(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBOpenClose")).string();
+    auto tempfolder = (tempFolder("DBOpenClose"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -52,7 +54,7 @@ BENCHMARK(DBOpenClose);
 
 static void DBWriteInt(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBWriteInt")).string();
+    auto tempfolder = (tempFolder("DBWriteInt"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -69,7 +71,7 @@ BENCHMARK(DBWriteInt);
 
 static void DBMultipleIntWrites(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBMultipleIntWrites")).string();
+    auto tempfolder = (tempFolder("DBMultipleIntWrites"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -89,7 +91,7 @@ BENCHMARK(DBMultipleIntWrites);
 
 static void DBRandomIntReads(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBRandomIntReads")).string();
+    auto tempfolder = (tempFolder("DBRandomIntReads"));
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -121,7 +123,7 @@ BENCHMARK(DBRandomIntReads);
 
 static void DBWriteStruct(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBWriteStruct")).string();
+    auto tempfolder = (tempFolder("DBWriteStruct"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -147,7 +149,7 @@ BENCHMARK(DBWriteStruct);
 
 static void DBMultipleStructWrites(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBStructMultipleWrites")).string();
+    auto tempfolder = (tempFolder("DBStructMultipleWrites"));
 
     ashdb::Options options;
     options.create_if_missing = true;
@@ -178,7 +180,7 @@ BENCHMARK(DBMultipleStructWrites);
 
 static void DBRandomStructReads(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("DBRandomIntReads")).string();
+    auto tempfolder = (tempFolder("DBRandomIntReads"));
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -224,7 +226,7 @@ static void BatchWriteSingleFile(benchmark::State& state)
     {
         state.PauseTiming();
         const std::string tempName = "BatchWriteSingleFile" + std::to_string(run);
-        auto tempfolder = (tempFolder(tempName)).string();
+        auto tempfolder = (tempFolder(tempName));
         auto db = std::make_unique<project::PersonDB>(tempfolder, ashdb::Options{});
         db->open();
         project::PersonDB::Batch batch;
@@ -250,7 +252,7 @@ static void BatchWriteMultipleFiles(benchmark::State& state)
         ashdb::Options options;
         options.filesize_max = 1024;
         const std::string tempName = "BatchWriteMultipleFiles" + std::to_string(run);
-        auto tempfolder = (tempFolder(tempName)).string();
+        auto tempfolder = (tempFolder(tempName));
         auto db = std::make_unique<project::PersonDB>(tempfolder, options);
         db->open();
         project::PersonDB::Batch batch;
@@ -269,7 +271,7 @@ BENCHMARK(BatchWriteMultipleFiles);
 // compare to "DBRandomStructReads"
 static void BatchReadMultipleFiles(benchmark::State& state)
 {
-    auto tempfolder = (tempFolder("BatchReadMultipleFiles")).string();
+    auto tempfolder = (tempFolder("BatchReadMultipleFiles"));
 
     ashdb::Options options;
     options.filesize_max = 100;
