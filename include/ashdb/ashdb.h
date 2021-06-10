@@ -7,6 +7,7 @@
 #include <vector>
 #include <filesystem>
 #include <mutex>
+#include <cassert>
 
 #include "options.h"
 #include "primitives.h"
