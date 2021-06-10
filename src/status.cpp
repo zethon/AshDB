@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 #include "../include/ashdb/status.h"
 
 namespace ashdb

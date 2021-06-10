@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 #include <filesystem>
+#include <mutex>
 
 #include "options.h"
 #include "primitives.h"
