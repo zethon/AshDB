@@ -644,18 +644,15 @@ std::uintmax_t AshDB<ThingT>::databaseSize() const
     std::uintmax_t retval = 0;
     for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
     {
-        const auto filename = ashdb::BuildFilename(
-                _dbfolder, _options.prefix, _options.extension, i);
+        const auto filename = buildDataFilename(i);
 
-        fs::path filepath{filename};
-
-        if (!fs::exists(filepath))
+        if (!fs::exists(filename))
         {
             assert(i == _activeSegmentNumber);
             break;
         }
 
-        retval += static_cast<std::uint64_t>(fs::file_size(filepath));
+        retval += static_cast<std::uint64_t>(fs::file_size(filename));
     }
     
     return retval;

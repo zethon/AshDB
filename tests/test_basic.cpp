@@ -487,4 +487,25 @@ BOOST_AUTO_TEST_CASE(move_ctor)
     BOOST_TEST(db2.activeSegmentNumber() == activeSegment);
 }
 
+BOOST_AUTO_TEST_CASE(db_size)
+{
+    auto tempFolder = ashdb::test::tempFolder("db_size");
+
+    ashdb::Options options;
+    options.filesize_max = 64;
+
+    StringDB db{tempFolder, options};
+    BOOST_TEST(db.open() == ashdb::OpenStatus::OK);
+    BOOST_TEST(db.databaseSize() == 0);
+
+    BOOST_TEST(db.write(e100Chars) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db.databaseSize() > 100);
+
+    BOOST_TEST(db.write(e100Chars) == ashdb::WriteStatus::OK);
+    BOOST_TEST(db.databaseSize() > 200);
+
+    BOOST_TEST(db.write("0123456789") == ashdb::WriteStatus::OK);
+    BOOST_TEST(db.databaseSize() > 210);
+}
+
 BOOST_AUTO_TEST_SUITE_END() 
