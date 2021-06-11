@@ -71,19 +71,13 @@ public:
         }
     }
 
-    [[maybe_unused]] OpenStatus open();
+    OpenStatus open();
     void close();
 
-    [[maybe_unused]]
     WriteStatus write(const ThingT& thing);
-
-    [[maybe_unused]]
     WriteStatus write(const Batch& batch);
 
-    [[maybe_unused]]
     ThingT read(std::size_t index);
-
-    [[nodiscard]]
     Batch read(std::size_t index, std::size_t count);
 
     // deletes all records starting at, and includins, `startIndex
@@ -98,7 +92,7 @@ public:
     // returns the size of all the "data-0001.dat" files on the disk
     // but does NOT include the size of the corresponding index
     // files (i.e. "data-0001.datidx")
-    std::uint64_t databaseSize() const;
+    std::uintmax_t databaseSize() const;
 
     // returns the number of records in the database
     std::size_t size() const;
@@ -645,9 +639,9 @@ void AshDB<ThingT>::writeIndexEntry(std::size_t offset)
 }
 
 template<class ThingT>
-std::uint64_t AshDB<ThingT>::databaseSize() const
+std::uintmax_t AshDB<ThingT>::databaseSize() const
 {
-    std::uint64_t retval = 0;
+    std::uintmax_t retval = 0;
     for (auto i = _startSegmentNumber; i <= _activeSegmentNumber; ++i)
     {
         const auto filename = ashdb::BuildFilename(
