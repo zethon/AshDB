@@ -143,6 +143,8 @@ private:
     std::string buildDataFilename(std::uint16_t x) const;
     std::string buildIndexFilename(std::uint16_t x) const;
 
+    // returns the segment number and relative index inside that segment's vector
+    // of offset values of the data item's offset in the data file
     IndexDetails findIndexDetails(std::size_t index);
 
     // reset the segment indices and all tracking info
@@ -153,6 +155,8 @@ private:
     std::string       _dbfolder;
     Options           _options;
 
+    // This is a vector of vectors. Each outer vector represents a segment, and the inner
+    // vectors contain the offsets of the data items inside each segment
     SegmentIndices             _segmentIndices;
 
     // the index boundaries of the data
@@ -527,7 +531,7 @@ void AshDB<ThingT>::findFileBoundaries()
 
     for (std::uint16_t i = 0u; i < std::numeric_limits<std::uint16_t>::max(); ++i)
     {
-        auto filename = ashdb::BuildFilename(_dbfolder, _options.prefix, _options.extension, i);
+        auto filename = buildDataFilename(i);
         if (fs::exists(filename))
         {
             if (!found)

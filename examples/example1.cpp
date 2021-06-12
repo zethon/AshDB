@@ -1,3 +1,4 @@
+// This example shows how to store a primitive data type in AshDB.
 #include <iostream>
 #include <ashdb/ashdb.h>
 

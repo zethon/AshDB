@@ -1,3 +1,6 @@
+// This example shows how to use a custom type with AshDB. It is important to
+// note that it is important to preserve the order in which the items and written
+// to and read from the database.
 #include <iostream>
 #include <random>
 #include <ashdb/ashdb.h>
