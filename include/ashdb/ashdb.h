@@ -63,13 +63,7 @@ public:
 
     AshDB(const AshDB&) = delete;
 
-    ~AshDB()
-    {
-        if (_open)
-        {
-            close();
-        }
-    }
+    ~AshDB() = default;
 
     OpenStatus open();
     void close();

@@ -9,7 +9,9 @@
 
 AshDB is a simple index based storage library for native and custom types that provides a customizable segmented file layout. 
 
-The database does not support updates. This is designed to be a write-once-read-many database. The database is stored in segments, the max size of each segment can be configured. Likewise, the database can have a limit as a whole which when exceeded, the oldest segments of the database will be deleted.
+This project spawned from my desire to write a cryptocoin from scratch which can be found [here](https://github.com/zethon/AshCoin). Since the database is designed to be used with the blockchain of that project there was no reason to support updates or deletes, which made implementation considerably simpler.
+
+This is designed as a write-once-read-many database. The database is stored in segments, the max size of each segment can be configured. Likewise, the database can have a limit as a whole which when exceeded, the oldest segments of the database will be deleted.
 
 # Example
 
@@ -54,7 +56,7 @@ After checking out the code, navigate into the folder and create a new folder ca
 ```bash
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=<Debug|Release|etc...> -DBUILD_ASH_TESTS=On
+cmake .. -DCMAKE_BUILD_TYPE=<Debug|Release|etc...> -BUILD_UNIT_TESTS=On
 ```
 
 The CMake build options include:
