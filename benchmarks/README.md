@@ -2,6 +2,8 @@
 
 ## 2021-06: Alpha 3
 
+In this version the batch-writing functionality was rewritten to make use of a temporary buffer before flushing everything to disk. This reduced the write time operation performance by nearly 75%.
+
 ```
 Run on (16 X 2300 MHz CPU s)
 CPU Caches:
