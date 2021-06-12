@@ -13,6 +13,10 @@ This project spawned from my desire to write a cryptocoin from scratch which can
 
 This is designed as a write-once-read-many database. The database is stored in segments, the max size of each segment can be configured. Likewise, the database can have a limit as a whole which when exceeded, the oldest segments of the database will be deleted.
 
+# Documentation
+
+[AshDB documentation](doc/README.md) is bundled with the source code.
+
 # Example
 
 Write the digits 0-99 to a new database, then read those numbers back out and print them.
