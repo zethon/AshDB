@@ -70,22 +70,6 @@ The CMake build options include:
 * `BUILD_EXAMPLES`
 * `BUILD_UNIT_TESTS`
 * `CODE_COVERAGE`
-
-## Options
-
-The database options can be configured through the `ashdb::Options` struct located in `include/ashdb/options.h`. 
-
-* `create_if_missing`: A boolean the defines if the database should be created if it doesn't exist. Existence is defined by whether or not the folder itself exists and not by any particular file or files. The default is true.
-
-* `error_if_exists`: A boolean that controls if an error should be generated if the database folder exists. The default is false.
-
-* `filesize_max`: An unsigned integer that defines in bytes the upper threshold of each segment. Segment files can exceed this value since individual records are not split across segments. The default is 0 which means the segments have no size limit and everything will be stored in one data file.
-
-* `database_max`: The upper threshold of the database size. Database size is calculated by the sum of all the database files. Index files are **not** included in this total. When the total size is exceeded, the oldest data file is deleted. The default value is 0 which means the database has no size limit.
-
-* `prefix`: The prefix used for data files and index files. For example a value of "data" would give a filename like `data-00001.ash`. The default value is "data".
-
-* `extension`: The extension used for data files, and prefixed for the index file extensions. For example, a value of "bin" would give a data file with a name "data-00001.bin" and an index file with the name of "data-00001.binidx". The default is "ash".
 `
 ## Performance
 

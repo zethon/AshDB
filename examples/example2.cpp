@@ -12,18 +12,18 @@ struct Point
     std::uint32_t z;
 };
 
-void ashdb_write(std::ostream& stream, const Point& p)
-{
-    ashdb::ashdb_write(stream, p.x);
-    ashdb::ashdb_write(stream, p.y);
-    ashdb::ashdb_write(stream, p.z);
-}
-
 void ashdb_read(std::istream& stream, Point& p)
 {
     ashdb::ashdb_read(stream, p.x);
     ashdb::ashdb_read(stream, p.y);
     ashdb::ashdb_read(stream, p.z);
+}
+
+void ashdb_write(std::ostream& stream, const Point& p)
+{
+    ashdb::ashdb_write(stream, p.x);
+    ashdb::ashdb_write(stream, p.y);
+    ashdb::ashdb_write(stream, p.z);
 }
 
 } // namespace app
