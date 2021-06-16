@@ -159,13 +159,34 @@ assert(db.opened() == false);
 
 ## Writing Data
 
+A single record can be appended to the database with the `AshDB<T>::write()` function which returns a `WriteStatus`,
+
 ### Batch Writing
+
+Batch writing allows for faster writing by putting all the records to be written into an `std::vector` and writing them at once. 
 
 ## Reading Data
 
+Reading data returns the data type at a given index.
+
 ### Batch Reads
 
+Batch reads allow you to read a batch of data sequentially stored. 
+
 ### Iteration
+
+Here is an example of iterating all the records in a string database.
+
+```cpp
+ashdb::AshDB<std::string> stringdb("stringdb");
+assert(db.opened() == false);
+assert(db.open() == ashdb::OpenStatus::OK);
+for (auto i = 0u; i < db.size(); ++i)
+{
+    std::string str = db.read(i);
+    std::cout << i << ':' << str << '\n';
+}
+```
 
 ## Truncating Data
 
