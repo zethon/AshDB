@@ -169,6 +169,15 @@ assert(db.opened() == false);
 
 ## Truncating Data
 
+The database can be truncated to a specific number of records. For example, to truncate the size down to the first 50 records we can use `AshDB::truncate()`
+
+```cpp
+ashdb::AshDB<std::string> strindb("strings");
+assert(db.open() == ashdb::OpenStatus::OK);
+db.truncate(50);
+```
+
+Data can only be removed from the end of the database.
 ## Segments
 
 All data are stored in segments. Each segment consists of a database file and an index file that are located in the database folder. The data files are named using the format:
