@@ -31,7 +31,7 @@ std::string BuildFilename(const std::string& folder,
 std::vector<std::size_t> ReadIndexFile(const std::string& filename);
 
 template<class ThingT>
-class AshDB
+class AshDB final
 {
 
 public:
@@ -41,6 +41,12 @@ public:
     // 0 - the segment index (i.e. _segmentIndicies[x]
     // 1 - the index of the offset within the segment index (i.e. _segmentIndicies[x][y])
     using IndexDetails = std::tuple<std::size_t, std::size_t>;
+
+    explicit AshDB(const std::string& folder)
+        : AshDB(folder, Options{})
+    {
+        // nothing to do
+    }
 
     AshDB(const std::string& folder, const Options& options)
         : _dbfolder{ folder },
@@ -82,6 +88,8 @@ public:
     // if we use "db->at(i)", these functions tell us the range of "i"
     std::optional<std::size_t> startIndex() const { return _startIndex; }
     std::optional<std::size_t> lastIndex() const { return _lastIndex; }
+
+    bool opened() const noexcept { return _open; }
 
     // returns the size of all the "data-0001.dat" files on the disk
     // but does NOT include the size of the corresponding index
