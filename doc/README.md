@@ -177,6 +177,7 @@ Batch reads allow you to read a batch of data sequentially stored.
 
 Here is an example of iterating all the records in a string database.
 
+Example 1 - Using Indicies
 ```cpp
 ashdb::AshDB<std::string> stringdb("stringdb");
 assert(db.opened() == false);
@@ -184,7 +185,29 @@ assert(db.open() == ashdb::OpenStatus::OK);
 for (auto i = 0u; i < db.size(); ++i)
 {
     std::string str = db.read(i);
-    std::cout << i << ':' << str << '\n';
+    std::cout << str << '\n';
+}
+```
+
+Example 2 - Using Ranges
+```cpp
+ashdb::AshDB<std::string> stringdb("stringdb");
+assert(db.opened() == false);
+assert(db.open() == ashdb::OpenStatus::OK);
+for (auto str : db)
+{
+    std::cout << str << '\n';
+}
+```
+
+Example 3 - Using Iterators
+```cpp
+ashdb::AshDB<std::string> stringdb("stringdb");
+assert(db.opened() == false);
+assert(db.open() == ashdb::OpenStatus::OK);
+for (auto it = db.begin(); it != db.end(); ++it)
+{
+    std::cout << *it << '\n';
 }
 ```
 
