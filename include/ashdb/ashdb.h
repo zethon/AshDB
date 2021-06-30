@@ -224,12 +224,14 @@ struct AshDB<ThingT>::Iterator
 
     reference operator*() const
     {
+        assert(_dbptr);
         _temp = _dbptr->read(_idx);
         return _temp;
     }
 
     pointer operator->() const
     {
+        assert(_dbptr);
         _temp = _dbptr->read(_idx);
         return &_temp;
     }
