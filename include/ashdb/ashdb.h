@@ -35,12 +35,10 @@ class AshDB final
 {
 
 public:
+    struct Iterator;
+
     using Batch = std::vector<ThingT>;
     using BatchIterator = typename std::vector<ThingT>::const_iterator;
-
-    // 0 - the segment index (i.e. _segmentIndicies[x]
-    // 1 - the index of the offset within the segment index (i.e. _segmentIndicies[x][y])
-    using IndexDetails = std::tuple<std::size_t, std::size_t>;
 
     explicit AshDB(const std::string& folder)
         : AshDB(folder, Options{})
@@ -77,8 +75,8 @@ public:
     WriteStatus write(const ThingT& thing);
     WriteStatus write(const Batch& batch);
 
-    ThingT read(std::size_t index);
-    Batch read(std::size_t index, std::size_t count);
+    ThingT read(std::size_t index) const;
+    Batch read(std::size_t index, std::size_t count) const;
 
     // deletes all records starting at, and includins, `startIndex
     // so that the last index in the database will be `startIndex-1`
@@ -120,9 +118,26 @@ public:
 
     // records the vector of vector that keeps track of all the records
     // and their offsets
-    const SegmentIndices segmentIndices() const { return _segmentIndices; }
+    const SegmentIndices segmentIndices() const
+    {
+        return _segmentIndices;
+    }
+
+    Iterator begin() const noexcept
+    {
+        return Iterator{*this};
+    }
+
+    Iterator end() const noexcept
+    {
+        return Iterator{*this, this->size()};
+    }
 
 private:
+    // 0 - the segment index (i.e. _segmentIndicies[x]
+    // 1 - the index of the offset within the segment index (i.e. _segmentIndicies[x][y])
+    using IndexDetails = std::tuple<std::size_t, std::size_t>;
+
     // scans the database folder to establish the min and max records for
     // the data files. For example, if we have the files data-00002.dat,
     // data-00003.dat, data-00004.dat, then it will set the start and
@@ -153,7 +168,7 @@ private:
 
     // returns the segment number and relative index inside that segment's vector
     // of offset values of the data item's offset in the data file
-    IndexDetails findIndexDetails(std::size_t index);
+    IndexDetails findIndexDetails(std::size_t index) const;
 
     // reset the segment indices and all tracking info
     void reset();
@@ -175,9 +190,66 @@ private:
     std::uint16_t           _startSegmentNumber = 0;
     std::uint16_t           _activeSegmentNumber = 0;
 
-    std::mutex              _readWriteMutex;
+    mutable std::mutex      _readWriteMutex;
 
     std::atomic_bool        _open = false;
+};
+
+template<class ThingT>
+struct AshDB<ThingT>::Iterator
+{
+    friend class AshDB<ThingT>;
+
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type   = std::size_t;
+    using value_type        = ThingT;
+    using pointer           = value_type*;
+    using reference         = value_type&;
+
+    Iterator() noexcept = default;
+    Iterator(const Iterator &) noexcept = default;
+    ~Iterator() = default;
+
+    Iterator& operator++()
+    {
+        _idx++;
+        return *this;
+    }
+    Iterator operator++(int x)
+    {
+        auto temp = *this;
+        ++(*this);
+        return temp;
+    }
+
+    reference operator*() const
+    {
+        assert(_dbptr);
+        _temp = _dbptr->read(_idx);
+        return _temp;
+    }
+
+    pointer operator->() const
+    {
+        assert(_dbptr);
+        _temp = _dbptr->read(_idx);
+        return &_temp;
+    }
+
+    bool operator!=(const Iterator& rhs) const noexcept
+    {
+        return rhs._idx != _idx;
+    }
+
+private:
+    Iterator(const AshDB<ThingT>& dbptr, std::size_t idx = 0)
+            : _dbptr{&dbptr}, _idx {idx}
+    {
+    }
+
+    mutable value_type      _temp;
+    const AshDB<ThingT>*    _dbptr = nullptr;
+    std::size_t             _idx = 0;
 };
 
 template<class ThingT>
@@ -402,7 +474,7 @@ WriteStatus AshDB<ThingT>::write(const AshDB<ThingT>::Batch& batch)
 }
 
 template<class ThingT>
-ThingT AshDB<ThingT>::read(std::size_t index)
+ThingT AshDB<ThingT>::read(std::size_t index) const
 {
     std::scoped_lock lock{_readWriteMutex};
 
@@ -424,7 +496,7 @@ ThingT AshDB<ThingT>::read(std::size_t index)
 }
 
 template<class ThingT>
-auto AshDB<ThingT>::read(std::size_t index, std::size_t count) -> AshDB<ThingT>::Batch
+auto AshDB<ThingT>::read(std::size_t index, std::size_t count) const -> AshDB<ThingT>::Batch
 {
     std::scoped_lock lock{_readWriteMutex};
 
@@ -678,7 +750,7 @@ std::size_t AshDB<ThingT>::size() const
 
 // TODO: this could be improved
 template<class ThingT>
-typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t index)
+typename AshDB<ThingT>::IndexDetails AshDB<ThingT>::findIndexDetails(std::size_t index) const
 {
     if (index < _startIndex || index > _lastIndex)
     {

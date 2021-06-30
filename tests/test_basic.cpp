@@ -508,4 +508,30 @@ BOOST_AUTO_TEST_CASE(db_size)
     BOOST_TEST(db.databaseSize() > 210);
 }
 
+BOOST_AUTO_TEST_CASE(iterator)
+{
+    auto tempFolder = ashdb::test::tempFolder("iterator");
+
+    ashdb::Options options;
+    options.filesize_max = 1024;
+
+    ashdb::AshDB<int> db{tempFolder, options};
+    BOOST_TEST(db.open() == ashdb::OpenStatus::OK);
+
+    ashdb::AshDB<int>::Batch batch;
+
+    // create the initial 100 records
+    for (auto i = 0u; i < 100; ++i)
+    {
+        batch.push_back(i * 10);
+    }
+    BOOST_TEST(db.write(batch) == ashdb::WriteStatus::OK);
+
+    int x = 0;
+    for (auto ir : db)
+    {
+        BOOST_TEST(ir == (x++ * 10));
+    }
+}
+
 BOOST_AUTO_TEST_SUITE_END() 
